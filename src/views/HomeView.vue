@@ -1,6 +1,6 @@
 <template>
   <div class="logo-container">
-    <h1 class="lumecho-logo">WD<span>FLY</span></h1>
+    <h1 class="lumecho-logo">Lum<span>Echo</span></h1>
   </div>
 </template>
 
