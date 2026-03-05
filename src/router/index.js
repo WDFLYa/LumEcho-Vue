@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/views/HomeView.vue' // 导入首页组件
+import Home from '@/views/HomeView.vue'
+import Login from "@/views/login/LoginPage.vue";
+import Register from "@/views/login/RegisterPage.vue"; // 导入首页组件
 
 const routes = [
     {
@@ -7,7 +9,14 @@ const routes = [
         name: 'Home',
         component: Home
     },
-    // 其他路由...
+    {
+        path: '/login',
+        component: Login
+    },
+    {
+        path: '/register',
+        component: Register
+    },
 ]
 
 const router = createRouter({
