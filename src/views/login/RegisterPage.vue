@@ -4,6 +4,13 @@
     <!-- 返回主页 -->
     <div class="back-btn" @click="goHome">← Back</div>
 
+    <!-- Toast 提示 -->
+    <transition name="toast">
+      <div v-if="toast" class="toast" :class="toastType">
+        {{ toast }}
+      </div>
+    </transition>
+
     <!-- Logo -->
     <h1 class="logo">
       Lum<span>Echo!</span>
@@ -15,27 +22,51 @@
       <span :class="{active: mode==='phone'}" @click="mode='phone'">手机注册</span>
     </div>
 
-    <!-- 提示信息 -->
-    <div v-if="message" class="message-box" :class="messageType">{{ message }}</div>
-
     <!-- 切换动画 -->
     <transition name="fade-slide" mode="out-in">
 
       <!-- 账号注册 -->
       <div v-if="mode==='account'" key="account" class="form">
-        <input type="text" placeholder="请输入账号" v-model="username"/>
-        <input type="password" placeholder="请输入密码" v-model="password"/>
-        <button class="register-btn" @click="handleAccountRegister">注册</button>
+
+        <input
+            type="text"
+            placeholder="请输入账号"
+            v-model="username"
+            :class="{error: message}"
+        />
+
+        <input
+            type="password"
+            placeholder="请输入密码"
+            v-model="password"
+            :class="{error: message}"
+        />
+
+        <!-- 输入框错误提示 -->
+        <p v-if="message" class="error-text">
+          {{ message }}
+        </p>
+
+        <button class="register-btn" @click="handleAccountRegister">
+          注册
+        </button>
+
       </div>
 
       <!-- 手机注册 -->
       <div v-else key="phone" class="form">
+
         <input type="text" placeholder="请输入手机号" v-model="phone"/>
+
         <div class="code-box">
           <input type="text" placeholder="验证码" v-model="code"/>
-          <button class="code-btn" @click="sendCode">发送验证码</button>
+          <button class="code-btn" @click="sendCode" :disabled="sending">{{ sending ? countdown + 's' : '发送验证码' }}</button>
         </div>
-        <button class="register-btn">注册</button>
+
+        <button class="register-btn" @click="handlePhoneRegister">
+          注册
+        </button>
+
       </div>
 
     </transition>
@@ -44,7 +75,7 @@
 </template>
 
 <script>
-import { registerByAccount } from "@/api/auth";
+import { registerByAccount, registerByPhone, sendCodeByPhone } from "@/api/auth";
 
 export default {
   name: "RegisterPage",
@@ -56,136 +87,253 @@ export default {
       password: "",
       phone: "",
       code: "",
-      message: "",        // 提示信息
-      messageType: ""     // success / error
+
+      message: "",
+
+      toast: "",
+      toastType: "",
+
+      sending: false,
+      countdown: 0,
+      timer: null
     };
   },
 
   methods: {
+
+
+
     goHome() {
       this.$router.push("/");
     },
 
-    // 账号注册
+    showToast(msg,type="success"){
+      this.toast = msg;
+      this.toastType = type;
+
+      setTimeout(()=>{
+        this.toast="";
+      },2000)
+    },
+
+
+
     async handleAccountRegister() {
-      this.message = "";
+
+      this.message="";
+
       try {
+
         const res = await registerByAccount({
-          account: this.username,
-          password: this.password
+          account:this.username,
+          password:this.password
         });
 
-        // 假设后端返回 { code: 200, message: '注册成功' }
         if(res.data.code === 200){
-          this.message = "注册成功！即将跳转登录页...";
-          this.messageType = "success";
-          setTimeout(() => this.$router.push("/login"), 1200);
-        } else {
-          // 后端业务错误，比如账号已存在
-          this.message = res.data.message || "注册失败";
-          this.messageType = "error";
+
+          this.showToast("注册成功，即将跳转登录","success");
+
+          setTimeout(()=>{
+            this.$router.push("/login")
+          },1200)
+
+        }else{
+
+        const data = res.data;
+
+        if(data.data){
+          this.message = Object.values(data.data)[0];
+        }else{
+          this.message = data.message || "注册失败";
         }
 
-      } catch(err) {
-        // 校验异常或网络错误
+        this.showToast(this.message,"error");
+
+      }
+
+      }catch(err){
+
         const data = err.response?.data;
+
         if(data){
-          // DTO校验错误，可能返回字段级别
+
           if(typeof data === "object"){
-            this.message = data.account || data.password || data.message || "注册失败";
-          } else {
-            this.message = data.message || "注册失败";
+            this.message =
+                data.data.account ||
+                data.data.password ||
+                data.message ||
+                "注册失败";
           }
-        } else {
-          this.message = "注册失败，网络或服务器错误";
+        }else{
+          this.message="网络或服务器错误";
         }
-        this.messageType = "error";
+
+        this.showToast(this.message,"error");
       }
     },
 
-    // TODO: 手机验证码逻辑
-    sendCode() {
-      alert("这里可以调用发送验证码接口");
+    async sendCode() {
+
+      this.sending = true;
+
+      try {
+        const res = await sendCodeByPhone({ phone: this.phone });
+
+        // 判断接口返回状态
+        if (res.data.code === 200) {
+          this.showToast("验证码已发送", "success");
+          this.startCountdown(); // 成功才倒计时
+        } else {
+          // 接口返回非 200 错误
+          const errMsg =
+              Object.values(res.data.data || {})[0] || res.data.message || "发送失败";
+          this.showToast(errMsg, "error");
+          this.sending = false; // 失败立即可重新发送
+        }
+
+      } catch (err) {
+
+        const data = err.response?.data;
+        if(data){
+
+          if(typeof data === "object"){
+            this.message =
+                data.data.phone ||
+                data.message
+          }
+
+        }else{
+          this.message="网络或服务器错误";
+        }
+
+        this.showToast(this.message,"error");
+        this.sending = false; // 失败立即可重新发送
+      }
+    },
+
+    // 倒计时方法
+    startCountdown() {
+      this.countdown = 60; // 秒数
+      this.timer = setInterval(() => {
+        this.countdown--;
+        if (this.countdown <= 0) {
+          clearInterval(this.timer);
+          this.sending = false; // 倒计时结束，按钮可点击
+        }
+      }, 1000);
+    },
+
+    async handlePhoneRegister() {
+      if (!this.phone) {
+        this.showToast("请输入手机号", "error");
+        return;
+      }
+      if (!this.code) {
+        this.showToast("请输入验证码", "error");
+        return;
+      }
+
+      try {
+        const res = await registerByPhone({
+          phone: this.phone,
+          code: this.code
+        });
+
+        // 判断接口返回
+        if (res.data.code === 200) {
+          this.showToast("注册成功，即将跳转登录", "success");
+          setTimeout(() => {
+            this.$router.push("/login");
+          }, 1200);
+        } else {
+          // 接口返回非 200 错误
+          const errMsg =
+              Object.values(res.data.data || {})[0] ||
+              res.data.message ||
+              "注册失败";
+          this.showToast(errMsg, "error");
+        }
+
+      } catch (err) {
+
+        const data = err.response?.data;
+        if(data){
+
+          if(typeof data === "object"){
+            this.message =
+                data.data.phone ||
+                data.data.code  ||
+                data.message
+          }
+
+        }else{
+          this.message="网络或服务器错误";
+        }
+
+        this.showToast(this.message,"error");
+      }
     }
+
+    }
+
   }
-}
+
 </script>
 
 <style scoped>
-/* 页面背景 */
+
+/* 页面 */
 .register-container{
   height:100vh;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  background: radial-gradient(circle at center,#f5f5ff,#ffffff);
-  animation: fadePage 0.8s ease;
-  position: relative;
+  background: radial-gradient(circle,#f7f7ff,#ffffff);
+  position:relative;
 }
 
-/* 页面动画 */
-@keyframes fadePage{
-  from{opacity:0; transform: translateY(20px);}
-  to{opacity:1; transform: translateY(0);}
-}
-
-/* 返回按钮 */
+/* 返回 */
 .back-btn{
   position:absolute;
   top:30px;
   left:40px;
-  font-weight:600;
-  color:#6c63ff;
   cursor:pointer;
-  transition:0.25s;
+  color:#6c63ff;
+  font-weight:600;
 }
-.back-btn:hover{transform: translateX(-4px);}
 
-/* Logo */
+/* logo */
 .logo{
-  font-size: clamp(3.5rem,8vw,5rem);
+  font-size:4rem;
   font-weight:800;
   margin-bottom:40px;
 }
-.logo span{color:#6c63ff;}
+.logo span{
+  color:#6c63ff;
+}
 
-/* Tabs */
+/* tabs */
 .tabs{
   display:flex;
-  gap:50px;
-  margin-bottom:20px;
+  gap:40px;
+  margin-bottom:30px;
 }
 .tabs span{
-  font-size:18px;
   cursor:pointer;
-  padding-bottom:6px;
-  transition:0.25s;
+  font-size:18px;
 }
-.tabs span:hover{color:#6c63ff;}
 .tabs .active{
   color:#6c63ff;
   border-bottom:3px solid #6c63ff;
 }
-
-/* 消息提示框 */
-.message-box{
-  margin-bottom:20px;
-  padding:10px 20px;
-  border-radius:12px;
-  font-weight:600;
-  width:360px;
-  text-align:center;
-}
-.message-box.success{background:#d4edda; color:#155724;}
-.message-box.error{background:#f8d7da; color:#721c24;}
 
 /* 表单 */
 .form{
   width:360px;
   display:flex;
   flex-direction:column;
-  gap:20px;
+  gap:18px;
 }
 
 /* 输入框 */
@@ -194,29 +342,55 @@ input{
   border-radius:10px;
   border:1px solid #ddd;
   font-size:16px;
-  outline:none;
-  transition: all 0.25s ease;
+  transition:all .25s;
 }
+
 input:focus{
   border-color:#6c63ff;
   box-shadow:0 0 0 3px rgba(108,99,255,0.15);
+  outline:none;
 }
 
-/* 验证码区域 */
+/* 输入错误 */
+input.error{
+  border-color:#ff4d4f;
+  animation:shake .25s;
+}
+
+/* 错误文字 */
+.error-text{
+  font-size:14px;
+  color:#ff4d4f;
+  margin-top:-8px;
+}
+
+/* 抖动动画 */
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  50%{transform:translateX(4px)}
+  75%{transform:translateX(-4px)}
+  100%{transform:translateX(0)}
+}
+
+/* 验证码 */
 .code-box{
   display:flex;
   gap:10px;
 }
-.code-btn{
-  padding:12px 16px;
-  border:none;
-  background:#6c63ff;
-  color:white;
-  border-radius:8px;
-  cursor:pointer;
-  transition:0.25s;
+
+.code-btn {
+  padding: 12px 16px;
+  border: none;
+  background: #6c63ff;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+
+  /* 新增 */
+  min-width: 100px; /* 根据你的设计调整 */
+  text-align: center; /* 保持文字居中 */
 }
-.code-btn:hover{background:#574fff;}
 
 /* 注册按钮 */
 .register-btn{
@@ -226,27 +400,69 @@ input:focus{
   border-radius:30px;
   background:linear-gradient(135deg,#ff7a18,#ffb347);
   color:white;
-  font-weight:600;
   font-size:16px;
+  font-weight:600;
   cursor:pointer;
-  transition: all 0.3s ease;
+  transition:all .3s;
 }
+
 .register-btn:hover{
-  transform: translateY(-3px) scale(1.03);
-  box-shadow:0 8px 25px rgba(255,122,24,0.35);
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(255,122,24,.35);
 }
 
-/* 切换动画 */
+/* toast */
+.toast{
+  position:fixed;
+  top:80px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:12px 28px;
+  border-radius:30px;
+  font-size:14px;
+  font-weight:600;
+  box-shadow:0 6px 18px rgba(0,0,0,0.15);
+}
+
+.toast.success{
+  background:#e8f8f0;
+  color:#1c8f55;
+}
+
+.toast.error{
+  background:#ffecec;
+  color:#d93025;
+}
+
+/* toast动画 */
+.toast-enter-active,
+.toast-leave-active{
+  transition:all .35s;
+}
+
+.toast-enter-from{
+  opacity:0;
+  transform:translate(-50%,-20px);
+}
+
+.toast-leave-to{
+  opacity:0;
+}
+
+/* 页面切换 */
 .fade-slide-enter-active,
-.fade-slide-leave-active{transition: all 0.35s ease;}
-.fade-slide-enter-from{opacity:0; transform: translateY(20px);}
-.fade-slide-leave-to{opacity:0; transform: translateY(-20px);}
-
-/* 手机适配 */
-@media (max-width:768px){
-  .form{width:80%;}
-  .tabs{gap:30px;}
-  .logo{font-size: clamp(3rem,12vw,4rem);}
-  .message-box{width:80%;}
+.fade-slide-leave-active{
+  transition:all .35s;
 }
+
+.fade-slide-enter-from{
+  opacity:0;
+  transform:translateY(20px);
+}
+
+.fade-slide-leave-to{
+  opacity:0;
+  transform:translateY(-20px);
+}
+
 </style>
