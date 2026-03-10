@@ -165,7 +165,7 @@ export default {
         })
         if(res.data.code === 200){
           this.showToast("登录成功","success")
-          setTimeout(()=>{ this.$router.push("/") },1000)
+          setTimeout(()=>{ this.$router.push("/home") },1000)
         }else{
           const data = res.data;
           this.message = data.data ? Object.values(data.data)[0] : (data.message || "登录失败");
@@ -190,7 +190,7 @@ export default {
         })
         if (res.data.code === 200) {
           this.showToast("登录成功，即将跳转主页", "success");
-          setTimeout(() => { this.$router.push("/"); }, 1200);
+          setTimeout(() => { this.$router.push("/home"); }, 1200);
         } else {
           const errMsg = Object.values(res.data.data || {})[0] || res.data.message || "登录失败";
           this.showToast(errMsg, "error");

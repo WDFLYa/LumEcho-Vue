@@ -24,3 +24,7 @@ export function loginByAccount(data) {
 export function loginByPhone(data) {
     return request.post("api/user/login/phone", data);
 }
+
+export function getHomePosts(params) {
+    return request.get("/api/post/select/all", { params });
+}

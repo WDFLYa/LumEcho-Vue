@@ -45,10 +45,6 @@
             <label>请输入密码</label>
           </div>
 
-          <!-- 输入框错误提示 -->
-          <p v-if="message" class="error-text">
-            {{ message }}
-          </p>
 
           <button class="register-btn" @click="handleAccountRegister">
             注 册

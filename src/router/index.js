@@ -1,13 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '@/views/HomeView.vue'
+import Welcome from '@/views/WelcomeView.vue'
 import Login from "@/views/login/LoginPage.vue";
-import Register from "@/views/login/RegisterPage.vue"; // 导入首页组件
+import Register from "@/views/login/RegisterPage.vue";
+import Home from "@/views/HomePage.vue"
+
 
 const routes = [
     {
         path: '/',
-        name: 'Home',
-        component: Home
+        name: 'Welcome',
+        component: Welcome
     },
     {
         path: '/login',
@@ -17,6 +19,10 @@ const routes = [
         path: '/register',
         component: Register
     },
+    {
+        path: '/home',
+        component: Home
+    }
 ]
 
 const router = createRouter({
