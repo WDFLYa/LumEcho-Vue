@@ -18,18 +18,27 @@
             @keyup.enter="handleSearch"
         />
         <button class="search-btn" @click="handleSearch">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
         </button>
       </div>
 
       <!-- 右侧用户区 -->
       <div class="nav-right">
         <button class="upload-btn" @click="goUpload">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
           <span>发布作品</span>
         </button>
         <div class="user-avatar" @click="goProfile">
-          <img src="https://ui-avatars.com/api/?name=User&background=6c63ff&color=fff" alt="Avatar" />
+          <img src="https://ui-avatars.com/api/?name=User&background=6c63ff&color=fff" alt="Avatar"/>
         </div>
       </div>
     </header>
@@ -52,10 +61,10 @@
           </button>
         </div>
         <div class="categories">
-          <span class="cat-tag" v-for="cat in categories" :key="cat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-            {{ cat }}
-          </span>
+  <span class="cat-tag" v-for="cat in categories" :key="cat">
+    <span class="cat-icon">{{ categoryIcons[cat] }}</span>
+    {{ cat }}
+  </span>
         </div>
       </div>
 
@@ -69,7 +78,7 @@
         >
           <!-- 封面图 (固定高度) -->
           <div class="card-image-wrapper">
-            <img :src="post.cover" :alt="post.title" class="card-cover" loading="lazy" />
+            <img :src="post.cover" :alt="post.title" class="card-cover" loading="lazy"/>
           </div>
 
           <!-- 卡片信息 -->
@@ -78,16 +87,18 @@
 
             <div class="post-meta">
               <div class="author-info">
-                <img :src="post.avatar" class="mini-avatar" />
+                <img :src="post.avatar" class="mini-avatar"/>
                 <span class="author-name">{{ post.username }}</span>
               </div>
               <div class="stats">
                 <span class="stat-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path
+                      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                   {{ post.likes }}
                 </span>
                 <span class="stat-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path
+                      d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                   {{ post.comments }}
                 </span>
               </div>
@@ -96,7 +107,10 @@
             <!-- 标签和时间同一行 -->
             <div class="card-footer">
               <span class="category-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round"><polygon
+                    points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline
+                    points="2 12 12 17 22 12"></polyline></svg>
                 {{ post.category }}
               </span>
               <span class="time-ago">{{ post.timeAgo }}</span>
@@ -118,7 +132,7 @@
 </template>
 
 <script>
-import { getHomePosts } from "@/api/auth"
+import {getHomePosts} from "@/api/auth"
 
 export default {
   name: "HomePage",
@@ -127,6 +141,14 @@ export default {
       searchQuery: '',
       activeTab: 'latest',
       categories: ['风光', '人像', '街拍', '黑白', '后期', '器材'],
+      categoryIcons: {
+        '风光': '🌄',
+        '人像': '👤',
+        '街拍': '🏙️',
+        '黑白': '⬛',
+        '后期': '🎨',
+        '器材': '📸'
+      },
       posts: [],
       hasMore: true,
       offset: 0,
@@ -231,7 +253,7 @@ export default {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.03);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.03);
 }
 
 .lumecho-logo-small {
@@ -358,7 +380,7 @@ export default {
   background: #fff;
   padding: 5px;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .tab-item {
@@ -420,7 +442,7 @@ export default {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   height: 100%; /* 让卡片填满 grid 单元格 */
@@ -433,7 +455,7 @@ export default {
 
 .card-image-wrapper {
   width: 100%;
-  aspect-ratio: 4 / 3;  /* 👈 用比例代替固定高度 */
+  aspect-ratio: 4 / 3; /* 👈 用比例代替固定高度 */
   overflow: hidden;
   background: #f0f0f0;
   flex-shrink: 0;
@@ -442,7 +464,7 @@ export default {
 .card-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover;  /* 填满容器 */
+  object-fit: cover; /* 填满容器 */
   transition: transform 0.5s ease;
 }
 
@@ -572,6 +594,7 @@ export default {
   color: #999;
   font-size: 14px;
 }
+
 /* 移动端适配 */
 @media (max-width: 768px) {
   .navbar {
@@ -587,8 +610,8 @@ export default {
   }
 
   .posts-grid {
-    grid-template-columns: 1fr;  /* 单列 */
-    gap: 20px;                   /* 减小间距 */
+    grid-template-columns: 1fr; /* 单列 */
+    gap: 20px; /* 减小间距 */
   }
 
   .filter-bar {
@@ -597,13 +620,13 @@ export default {
 
   /* 👇 图片容器调整 */
   .card-image-wrapper {
-    height: 280px;              /* 手机端图片稍高 */
-    aspect-ratio: auto;         /* 取消比例限制 */
+    height: 280px; /* 手机端图片稍高 */
+    aspect-ratio: auto; /* 取消比例限制 */
   }
 
   .card-cover {
-    object-fit: cover;          /* 填满容器 */
-    object-position: center;    /* 从中心裁剪 */
+    object-fit: cover; /* 填满容器 */
+    object-position: center; /* 从中心裁剪 */
   }
 
   /* 👇 卡片内边距调整 */
