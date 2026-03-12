@@ -3,7 +3,7 @@ import Welcome from '@/views/WelcomeView.vue'
 import Login from "@/views/login/LoginPage.vue";
 import Register from "@/views/login/RegisterPage.vue";
 import Home from "@/views/HomePage.vue"
-
+import PostDetail from '@/views/PostDetail.vue'
 
 const routes = [
     {
@@ -22,6 +22,10 @@ const routes = [
     {
         path: '/home',
         component: Home
+    },
+    {
+        path: '/post/:id',
+        component: PostDetail
     }
 ]
 
