@@ -4,9 +4,10 @@
       <!-- 头像：精致边框 + 悬浮感 -->
       <div class="avatar-box" @click="goProfile(comment.userId)">
         <img
-            :src="comment.avatar || 'https://ui-avatars.com/api/?name=User&background=random'"
+            :src="comment.avatar || 'http://localhost:9000/specialty/avatar.png'"
             class="comment-avatar"
             alt="avatar"
+            @error="$event.target.src = defaultAvatar"
         />
       </div>
 
@@ -54,6 +55,7 @@
 </template>
 
 <script>
+
 export default {
   name: 'CommentItem',
   props: {

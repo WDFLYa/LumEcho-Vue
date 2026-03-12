@@ -1,74 +1,40 @@
 <template>
   <div class="home-container">
-    <!-- 顶部导航栏 -->
-    <header class="navbar">
-      <div class="nav-left" @click="goHome">
-        <h1 class="lumecho-logo-small">
-          Lum<span>Echo!</span>
-        </h1>
-      </div>
+    <HomeNavBar
+        :user-avatar="currentUserAvatar"
+        :user-name="currentUserName"
+        @search="handleSearch"
+        @upload="goUpload"
+        @profile="goProfile"
+    />
 
-      <!-- 搜索框 -->
-      <div class="search-container">
-        <input
-            type="text"
-            v-model="searchQuery"
-            placeholder="搜索摄影师、作品或标签..."
-            class="search-input"
-            @keyup.enter="handleSearch"
-        />
-        <button class="search-btn" @click="handleSearch">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
-      </div>
-
-      <!-- 右侧用户区 -->
-      <div class="nav-right">
-        <button class="upload-btn" @click="goUpload">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
-          </svg>
-          <span>发布作品</span>
-        </button>
-        <div class="user-avatar" @click="goProfile">
-          <img src="https://ui-avatars.com/api/?name=User&background=6c63ff&color=fff" alt="Avatar"/>
-        </div>
-      </div>
-    </header>
-
-    <!-- 主体内容区 -->
     <main class="content-wrapper">
-
-      <!-- 分类/筛选栏 -->
+      <!-- 筛选栏 -->
       <div class="filter-bar">
         <div class="tabs">
-          <button
-              :class="['tab-item', { active: activeTab === 'latest' }]"
-              @click="switchTab('latest')">
-            最新发现
+          <button :class="['tab-item', { active: activeTab === 'latest' }]" @click="switchTab('latest')">
+            🕒 最新发现
           </button>
-          <button
-              :class="['tab-item', { active: activeTab === 'hot' }]"
-              @click="switchTab('hot')">
-            热门榜单
+          <button :class="['tab-item', { active: activeTab === 'hot' }]" @click="switchTab('hot')">
+            🔥 热门榜单
           </button>
         </div>
+
         <div class="categories">
-  <span class="cat-tag" v-for="cat in categories" :key="cat">
-    <span class="cat-icon">{{ categoryIcons[cat] }}</span>
-    {{ cat }}
-  </span>
+          <span
+              class="cat-tag"
+              v-for="cat in categoryList"
+              :key="cat.id"
+              :class="{ active: selectedCategoryId === cat.id }"
+              @click="selectCategory(cat)"
+          >
+            <span class="cat-icon">{{ categoryIcons[cat.id] || categoryIcons.default }}</span>
+            {{ cat.name }}
+          </span>
         </div>
       </div>
 
-      <!-- 帖子列表 (Grid 布局) -->
+      <!-- 帖子列表 -->
       <div class="posts-grid">
         <div
             class="post-card"
@@ -76,108 +42,93 @@
             :key="post.id"
             @click="goDetail(post.id)"
         >
-          <!-- 封面图 (固定高度) -->
           <div class="card-image-wrapper">
-            <img :src="post.cover" :alt="post.title" class="card-cover" loading="lazy"/>
+            <img
+                :src="post.cover || defaultCover"
+                :alt="post.title"
+                class="card-cover"
+                loading="lazy"
+                @error="$event.target.src = defaultCover"
+            />
+            <!-- ✅ 已删除“看看”气泡，此处留空，只保留图片 -->
           </div>
 
-          <!-- 卡片信息 -->
           <div class="card-info">
-            <h3 class="post-title">{{ post.title }}</h3>
+            <h3 class="post-title">{{ post.title || '无标题帖子' }}</h3>
 
             <div class="post-meta">
               <div class="author-info">
-                <img :src="post.avatar" class="mini-avatar"/>
+                <img :src="post.avatar" class="mini-avatar" alt="author" @error="$event.target.src = defaultAvatar" />
                 <span class="author-name">{{ post.username }}</span>
               </div>
+
               <div class="stats">
-                <span class="stat-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path
-                      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                  {{ post.likes }}
+                <span class="stat-item" title="点赞">
+                  🤍 {{ post.likes || 0 }}
                 </span>
-                <span class="stat-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path
-                      d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                  {{ post.comments }}
+                <span class="stat-item" title="评论">
+                  💬 {{ post.comments || 0 }}
                 </span>
               </div>
             </div>
 
-            <!-- 标签和时间同一行 -->
             <div class="card-footer">
               <span class="category-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round"><polygon
-                    points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline
-                    points="2 12 12 17 22 12"></polyline></svg>
-                {{ post.category }}
+                {{ categoryIcons[post.categoryId] || '🏷️' }} {{ post.category || '综合' }}
               </span>
-              <span class="time-ago">{{ post.timeAgo }}</span>
+              <span class="time-ago">{{ post.timeAgo || '刚刚' }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 加载更多 / 分页提示 -->
+      <!-- 加载更多 -->
       <div class="load-more-container" v-if="hasMore">
-        <button class="load-more-btn" @click="loadMore">加载更多灵感</button>
+        <button class="load-more-btn" @click="loadMore">
+          ✨ 加载更多灵感
+        </button>
       </div>
       <div class="no-more" v-else>
-        <p>已经到底了，休息一下喝杯咖啡吧 ☕️</p>
+        <p>已经到底啦，喝杯奶茶休息一下吧 🧋</p>
       </div>
-
     </main>
   </div>
 </template>
 
 <script>
-import {getHomePosts} from "@/api/auth"
+import { getHomePosts, getCurrentUserInfo } from "@/api/auth";
+import HomeNavBar from "@/components/NavBar/HomeNavBar.vue";
+import { getAllCategories } from '@/api/category'
 
 export default {
   name: "HomePage",
+  components: { HomeNavBar },
   data() {
     return {
+      currentUserAvatar: 'http://localhost:9000/specialty/avatar.png',
+      currentUserName: '神秘摄影师',
       searchQuery: '',
       activeTab: 'latest',
-      categories: ['风光', '人像', '街拍', '黑白', '后期', '器材'],
-      categoryIcons: {
-        '风光': '🌄',
-        '人像': '👤',
-        '街拍': '🏙️',
-        '黑白': '⬛',
-        '后期': '🎨',
-        '器材': '📸'
-      },
+      categoryList: [],
+      selectedCategoryId: null,
+      categoryIcons: { 1: '🏠', 2: '💻', 3: '🍜', 4: '✈️', 5: '🛌', default: '📁' },
       posts: [],
       hasMore: true,
       offset: 0,
-      limit: 8
+      limit: 8,
+      defaultCover: 'http://localhost:9000/specialty/cover.png',
+      defaultAvatar: 'http://localhost:9000/specialty/avatar.png'
     };
   },
   mounted() {
     this.fetchPosts();
+    this.fetchUserInfo();
+    this.fetchCategories();
   },
   methods: {
-    goHome() {
-      this.$router.push("/")
-    },
-    goLogin() {
-      this.$router.push("/login")
-    },
-    goRegister() {
-      this.$router.push("/register")
-    },
-    goUpload() {
-      this.$router.push("/upload")
-    },
-    goProfile() {
-      this.$router.push("/profile")
-    },
-    goDetail(id) {
-      this.$router.push(`/post/${id}`)
-    },
-
+    goUpload() { this.$router.push("/upload"); },
+    goProfile() { this.$router.push("/profile"); },
+    goDetail(id) { this.$router.push(`/post/${id}`); },
     switchTab(tab) {
       this.activeTab = tab;
       this.offset = 0;
@@ -185,186 +136,78 @@ export default {
       this.hasMore = true;
       this.fetchPosts();
     },
-
-    handleSearch() {
-      console.log("Searching for:", this.searchQuery);
+    handleSearch(query) { this.searchQuery = query; },
+    loadMore() { if (this.hasMore) this.fetchPosts(); },
+    selectCategory(cat) {
+      this.selectedCategoryId = cat.id;
+      this.offset = 0;
+      this.posts = [];
+      this.hasMore = true;
+      this.fetchPosts();
     },
-
-    loadMore() {
-      if (this.hasMore) {
-        this.fetchPosts();
-      }
+    async fetchCategories() {
+      try {
+        const res = await getAllCategories();
+        if (res.data && res.data.code === 200) this.categoryList = res.data.data;
+      } catch (e) { console.error(e); }
     },
-
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        if (res.data.code === 200 || res.data.success) {
+          const u = res.data.data;
+          this.currentUserAvatar = u.avatar || this.currentUserAvatar;
+          this.currentUserName = u.username || this.currentUserName;
+        }
+      } catch (e) { console.error(e); }
+    },
     async fetchPosts() {
       try {
-        // 前端 latest → 后端 time
         const sortParam = this.activeTab === 'latest' ? 'time' : 'hot';
-
-        // 调用后端真实接口
-        const res = await getHomePosts({
-          sort: sortParam,
-          offset: this.offset,
-          limit: this.limit
-        });
-
-        // 解析后端返回数据（三层结构）
-        // res.data → axios 响应
-        // res.data.data → Result 包装层 (code, message, data)
-        // res.data.data.data → 帖子数组
-        const newPosts = res.data.data.data || [];
-
-        // 获取 hasMore 状态
+        const res = await getHomePosts({ sort: sortParam, offset: this.offset, limit: this.limit });
+        let newPosts = res.data.data.data || [];
+        newPosts = newPosts.map(item => ({
+          ...item,
+          avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
+          username: item.username || item.authorName || '神秘摄影师',
+          cover: (item.cover && item.cover.trim()) ? item.cover : this.defaultCover,
+          title: item.title || '无标题帖子',
+          likes: item.likes || 0,
+          comments: item.comments || 0,
+          category: item.category || '综合',
+          categoryId: item.categoryId,
+          timeAgo: item.timeAgo || '刚刚'
+        }));
         this.hasMore = res.data.data.hasMore || false;
-
-        // 后端已经返回 timeAgo，直接使用
         this.posts = [...this.posts, ...newPosts];
-
-        // offset 累加，下次从后面继续取
         this.offset += newPosts.length;
-
-        console.log('✅ 获取帖子成功，当前总数:', this.posts.length);
-
-      } catch (error) {
-        console.error('❌ 获取帖子列表失败:', error);
+      } catch (e) {
+        console.error(e);
         this.hasMore = false;
       }
     }
   }
-}
+};
 </script>
 
 <style scoped>
+/* --- 全局 --- */
 .home-container {
   min-height: 100vh;
-  background-color: #f9f9fc;
-  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  color: #333;
+  background-color: #F7FAFC;
+  background-image: radial-gradient(#E3F2FD 1px, transparent 1px);
+  background-size: 24px 24px;
+  font-family: 'Nunito', 'Segoe UI', sans-serif;
+  color: #455A64;
 }
 
-/* --- Navbar 样式 --- */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 40px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.03);
-}
-
-.lumecho-logo-small {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #222;
-  cursor: pointer;
-  margin: 0;
-}
-
-.lumecho-logo-small span {
-  background: linear-gradient(90deg, #6c63ff, #9f8cff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* 搜索框 */
-.search-container {
-  flex: 1;
-  max-width: 500px;
-  margin: 0 40px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 20px;
-  padding-right: 50px;
-  border-radius: 50px;
-  border: 1px solid #e0e0e0;
-  background: #f5f5f7;
-  font-size: 15px;
-  transition: all 0.3s;
-  outline: none;
-}
-
-.search-input:focus {
-  background: #fff;
-  border-color: #6c63ff;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.15);
-}
-
-.search-btn {
-  position: absolute;
-  right: 15px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #6c63ff;
-  display: flex;
-  align-items: center;
-}
-
-/* 右侧按钮 */
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.upload-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #222;
-  color: #fff;
-  border: none;
-  border-radius: 30px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.upload-btn:hover {
-  transform: translateY(-2px);
-  background: #000;
-}
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-}
-
-.user-avatar:hover {
-  border-color: #6c63ff;
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* --- 主体内容 --- */
 .content-wrapper {
-  max-width: 1400px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 30px 20px;
 }
 
-/* 筛选栏 */
+/* --- 筛选栏 --- */
 .filter-bar {
   display: flex;
   justify-content: space-between;
@@ -377,99 +220,118 @@ export default {
 .tabs {
   display: flex;
   gap: 10px;
-  background: #fff;
-  padding: 5px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  background: #FFF;
+  padding: 6px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(129, 212, 250, 0.15);
+  border: 1px solid #E1F5FE;
 }
 
 .tab-item {
-  padding: 8px 24px;
+  padding: 8px 20px;
   border: none;
   background: transparent;
-  color: #666;
-  font-weight: 600;
-  border-radius: 8px;
+  color: #78909C;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .tab-item.active {
-  background: #6c63ff;
+  background: #81D4FA;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.3);
+  box-shadow: 0 4px 10px rgba(129, 212, 250, 0.4);
+  transform: scale(1.05);
+}
+
+.tab-item:hover:not(.active) {
+  color: #4FC3F7;
+  background: #E1F5FE;
 }
 
 .categories {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .cat-tag {
   font-size: 13px;
-  color: #888;
-  background: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
+  color: #607D8B;
+  background: #FFF;
+  padding: 8px 16px;
+  border-radius: 50px;
   cursor: pointer;
-  border: 1px solid #eee;
-  transition: all 0.2s;
+  border: 2px solid #F0F4F8;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   gap: 6px;
+  font-weight: 600;
 }
 
 .cat-tag:hover {
-  color: #6c63ff;
-  border-color: #6c63ff;
+  transform: translateY(-3px) scale(1.05);
+  border-color: #81D4FA;
+  color: #0277BD;
+  box-shadow: 0 5px 15px rgba(129, 212, 250, 0.2);
 }
 
-.cat-tag svg {
-  color: #6c63ff;
+.cat-tag.active {
+  background: #E1F5FE;
+  color: #0277BD;
+  border-color: #81D4FA;
+  font-weight: 800;
 }
 
-/* --- 帖子网格 (核心布局) --- */
+/* --- 帖子卡片 --- */
 .posts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 30px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
 }
 
-/* 卡片设计 */
 .post-card {
-  background: #fff;
-  border-radius: 16px;
+  background: #FFFFFF;
+  border-radius: 24px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid #F0F4F8;
+  box-shadow: 0 10px 20px rgba(100, 181, 246, 0.08);
   display: flex;
   flex-direction: column;
-  height: 100%; /* 让卡片填满 grid 单元格 */
+  height: 100%;
+  position: relative;
 }
 
+/* 悬停效果：仅上浮 + 阴影，无遮罩 */
 .post-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 30px rgba(108, 99, 255, 0.15);
+  transform: translateY(-8px) scale(1.015);
+  box-shadow: 0 15px 35px rgba(129, 212, 250, 0.25);
+  border-color: #B3E5FC;
 }
 
 .card-image-wrapper {
   width: 100%;
-  aspect-ratio: 4 / 3; /* 👈 用比例代替固定高度 */
+  aspect-ratio: 4 / 3;
   overflow: hidden;
-  background: #f0f0f0;
-  flex-shrink: 0;
+  background: #ECEFF1;
+  position: relative;
 }
 
 .card-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* 填满容器 */
-  transition: transform 0.5s ease;
+  object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+/* 图片仅放大，保持原色 */
 .post-card:hover .card-cover {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .card-info {
@@ -477,20 +339,19 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1; /* 填充剩余空间 */
+  flex: 1;
 }
 
 .post-title {
   font-size: 16px;
-  font-weight: 700;
-  color: #222;
+  font-weight: 800;
+  color: #37474F;
   margin: 0;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 44px; /* 保证标题区域高度一致 */
 }
 
 .post-meta {
@@ -511,144 +372,104 @@ export default {
   height: 24px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid #FFF;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .author-name {
   font-size: 13px;
-  color: #666;
-  font-weight: 500;
+  color: #78909C;
+  font-weight: 600;
 }
 
 .stats {
   display: flex;
-  gap: 12px;
-  color: #999;
-  font-size: 13px;
+  gap: 10px;
+  color: #90A4AE;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
   gap: 4px;
+  background: #F5F7FA;
+  padding: 4px 8px;
+  border-radius: 12px;
+  transition: background 0.3s;
 }
 
-/* 底部标签和时间同一行 */
+.post-card:hover .stat-item {
+  background: #E1F5FE;
+  color: #0277BD;
+}
+
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 2px dashed #F0F4F8;
 }
 
 .category-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0288D1;
+  background: #E1F5FE;
+  padding: 4px 10px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: linear-gradient(135deg, #f5f5ff 0%, #ffffff 100%);
-  color: #6c63ff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 20px;
-  border: 1px solid rgba(108, 99, 255, 0.2);
-}
-
-.category-badge svg {
-  flex-shrink: 0;
+  gap: 4px;
 }
 
 .time-ago {
   font-size: 12px;
-  color: #aaa;
-  white-space: nowrap;
+  color: #B0BEC5;
+  font-weight: 600;
 }
 
-/* 加载更多 */
+/* --- 加载更多 --- */
 .load-more-container {
-  margin-top: 60px;
+  margin-top: 50px;
   text-align: center;
 }
 
 .load-more-btn {
-  padding: 12px 40px;
-  background: transparent;
-  border: 2px solid #e0e0e0;
-  color: #666;
-  font-weight: 600;
-  border-radius: 30px;
+  padding: 14px 40px;
+  background: #FFF;
+  border: 2px dashed #81D4FA;
+  color: #0277BD;
+  font-weight: 800;
+  font-size: 15px;
+  border-radius: 50px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 10px rgba(129, 212, 250, 0.2);
 }
 
 .load-more-btn:hover {
-  border-color: #6c63ff;
-  color: #6c63ff;
-  background: rgba(108, 99, 255, 0.05);
+  background: #E1F5FE;
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(129, 212, 250, 0.4);
+  border-style: solid;
 }
 
 .no-more {
-  margin-top: 60px;
+  margin-top: 50px;
   text-align: center;
-  color: #999;
-  font-size: 14px;
+  color: #90A4AE;
+  font-size: 15px;
+  font-weight: 600;
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
-  .navbar {
-    padding: 15px 20px;
-  }
-
-  .search-container {
-    display: none;
-  }
-
-  .upload-btn span {
-    display: none;
-  }
-
-  .posts-grid {
-    grid-template-columns: 1fr; /* 单列 */
-    gap: 20px; /* 减小间距 */
-  }
-
-  .filter-bar {
-    justify-content: center;
-  }
-
-  /* 👇 图片容器调整 */
-  .card-image-wrapper {
-    height: 280px; /* 手机端图片稍高 */
-    aspect-ratio: auto; /* 取消比例限制 */
-  }
-
-  .card-cover {
-    object-fit: cover; /* 填满容器 */
-    object-position: center; /* 从中心裁剪 */
-  }
-
-  /* 👇 卡片内边距调整 */
-  .card-info {
-    padding: 12px;
-  }
-
-  .post-title {
-    font-size: 15px;
-  }
-
-  .tabs {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .categories {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 15px;
-  }
+  .posts-grid { grid-template-columns: 1fr; gap: 20px; }
+  .filter-bar { justify-content: center; }
+  .tabs { width: 100%; justify-content: center; }
+  .categories { justify-content: center; width: 100%; }
 }
-
 </style>

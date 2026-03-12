@@ -1,29 +1,13 @@
 <template>
   <div class="detail-container">
     <!-- 顶部导航栏 -->
-    <header class="navbar">
-      <div class="nav-left" @click="goHome">
-        <h1 class="lumecho-logo-small">
-          🌟 Lum<span>Echo!</span>
-        </h1>
-      </div>
-
-      <div class="search-container">
-        <input type="text" placeholder="寻找灵感火花... ✨" class="search-input" />
-        <button class="search-btn">🔍</button>
-      </div>
-
-      <div class="nav-right">
-        <button class="upload-btn" @click="goUpload">
-          <span class="btn-icon">📸</span>
-          <span>发布作品</span>
-        </button>
-        <div class="user-avatar" @click="goProfile">
-          <img src="https://ui-avatars.com/api/?name=User&background=ffb7b2&color=fff" alt="Avatar" />
-          <span class="avatar-status">🟢</span>
-        </div>
-      </div>
-    </header>
+    <!-- ✅ 修改点 1: 增加了 :user-name 绑定 -->
+    <DetailNavBar
+        :user-avatar="currentUserAvatar"
+        :user-name="currentUserName"
+        @upload="goUpload"
+        @profile="goProfile"
+    />
 
     <!-- 主体内容 -->
     <main class="content-wrapper" v-if="!loading">
@@ -32,7 +16,7 @@
       <div class="post-header">
         <div class="author-info">
           <div class="avatar-wrapper" @click="goProfile">
-            <img :src="post.authorAvatar || 'https://ui-avatars.com/api/?name=Unknown'" class="author-avatar" />
+            <img :src="post.authorAvatar" class="author-avatar" />
             <span class="avatar-badge">📷</span>
           </div>
           <div class="author-details">
@@ -111,7 +95,7 @@
           <span class="count-badge">{{ totalComments }}</span>
         </h3>
 
-        <!-- 发表评论输入框 (去掉了多余的头像) -->
+        <!-- 发表评论输入框 -->
         <div class="comment-input-area" ref="commentInputArea">
           <div class="input-wrapper">
             <textarea
@@ -167,7 +151,7 @@
       <p>正在捕捉灵感...</p>
     </div>
 
-    <!-- 可爱提示 Toast (用于分享等功能) -->
+    <!-- 可爱提示 Toast -->
     <transition name="toast-fade">
       <div v-if="toastVisible" class="custom-toast">
         {{ toastMessage }}
@@ -179,13 +163,21 @@
 <script>
 import { getPostById, likePost, unlikePost } from "@/api/post";
 import { getComments, createComment } from "@/api/comment";
+import { getCurrentUserInfo } from "@/api/auth";
+
 import CommentItem from "@/components/CommentItem.vue";
+import DetailNavBar from "@/components/NavBar/DetailNavBar.vue";
 
 export default {
   name: "PostDetail",
-  components: { CommentItem },
+  components: {
+    CommentItem,
+    DetailNavBar
+  },
   data() {
     return {
+      currentUserAvatar: 'http://localhost:9000/specialty/avatar.png',
+      currentUserName: '神秘用户', //当前登录用户
       postId: null,
       loading: true,
       post: {
@@ -195,7 +187,7 @@ export default {
         authorName: '',
         authorAvatar: '',
         createTime: '',
-        categories: [] // 新增：存储分类标签
+        categories: []
       },
       comments: [],
       totalComments: 0,
@@ -208,24 +200,27 @@ export default {
       replyingToUsername: '',
       submitting: false,
 
-      // 新增：Toast 提示控制
+      // Toast 提示控制
       toastVisible: false,
       toastMessage: ''
     };
   },
   computed: {
-    // 智能计算网格类名，解决布局问题
     gridClass() {
       const count = this.post.imageUrls.length;
       if (count === 1) return 'single-image';
       if (count === 2) return 'two-images';
       if (count === 3) return 'three-images';
-      return 'multi-images'; // 4 张及以上
+      return 'multi-images';
     }
   },
   created() {
     this.postId = this.$route.params.id;
-    if (!this.postId) { this.loading = false; return; }
+    if (!this.postId) {
+      this.loading = false;
+      return;
+    }
+    this.fetchUserInfo(); // 先获取当前用户信息
     this.fetchPostDetail();
     this.fetchComments();
   },
@@ -234,11 +229,24 @@ export default {
     goProfile() { this.$router.push('/profile') },
     goUpload() { this.$router.push('/upload') },
 
-    // 显示可爱提示
     showToast(msg) {
       this.toastMessage = msg;
       this.toastVisible = true;
       setTimeout(() => { this.toastVisible = false; }, 2500);
+    },
+
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        if (res.data.code === 200 || res.data.success) {
+          const userInfo = res.data.data;
+          this.currentUserAvatar = userInfo.avatar;
+          this.currentUserName = userInfo.username;
+          console.log('✅ 用户信息已加载:', this.currentUserName);
+        }
+      } catch (error) {
+        console.error('❌ 获取用户信息失败:', error);
+      }
     },
 
     async fetchPostDetail() {
@@ -246,17 +254,18 @@ export default {
         const res = await getPostById(this.postId);
         if (res.data.code === 200 || res.data.success) {
           const data = res.data.data;
+
           this.post = {
             title: data.title || '无标题',
             content: data.content || '暂无内容',
             imageUrls: data.imageUrls || [],
             createTime: data.createTime || '',
-            authorName: data.username || data.authorName || '摄影师',
-            authorAvatar: data.avatar || data.authorAvatar || '',
+            authorName: data.username || '神秘摄影师',
+            authorAvatar: data.avatar || 'http://localhost:9000/specialty/avatar.png',
             categories: data.categoryName ? [data.categoryName] : []
           };
+
           this.likeCount = data.likeCount || 0;
-          // 如果有用户点赞状态接口，也可以在这里设置 this.isLiked
         }
       } catch (e) {
         console.error(e);
@@ -289,7 +298,6 @@ export default {
     },
 
     async toggleLike() {
-      // 乐观更新 UI
       const originalState = this.isLiked;
       const originalCount = this.likeCount;
 
@@ -300,19 +308,16 @@ export default {
         if (this.isLiked) { await likePost(this.postId); }
         else { await unlikePost(this.postId); }
       } catch (e) {
-        // 失败回滚
         this.isLiked = originalState;
         this.likeCount = originalCount;
         this.showToast("网络开小差了，点赞失败~");
       }
     },
 
-    // 滚动到评论框
     scrollToComment() {
       const area = this.$refs.commentInputArea;
       if(area) {
         area.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // 自动聚焦
         const textarea = area.querySelector('textarea');
         if(textarea) textarea.focus();
       }
@@ -323,9 +328,7 @@ export default {
     },
 
     handleCollect() {
-      // 将来对接收藏接口
       this.showToast("⭐ 已加入收藏夹 (模拟)");
-      // TODO: 调用收藏 API
     },
 
     handleReplyClick(comment) {
@@ -388,7 +391,7 @@ export default {
   background: linear-gradient(180deg, #FFF9F0 0%, #FFFFFF 100%);
   font-family: 'Segoe UI', 'Helvetica Neue', 'PingFang SC', sans-serif;
   color: #4A4A5A;
-  position: relative; /* 为 Toast 定位 */
+  position: relative;
 }
 
 /* ==================== Toast 提示 ==================== */
@@ -416,112 +419,8 @@ export default {
   transform: translate(-50%, -20px);
 }
 
-/* ==================== 导航栏 (保持不变) ==================== */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 40px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(15px);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  border-bottom: 1px solid #FFE5D9;
-  box-shadow: 0 4px 20px rgba(255, 183, 178, 0.1);
-}
-.lumecho-logo-small {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #FF8E8E;
-  cursor: pointer;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: transform 0.2s;
-}
-.lumecho-logo-small:hover { transform: scale(1.05) rotate(-2deg); }
-.lumecho-logo-small span { color: #6C63FF; -webkit-text-fill-color: #6C63FF; }
-.search-container {
-  flex: 1;
-  max-width: 450px;
-  margin: 0 40px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-input {
-  width: 100%;
-  padding: 12px 45px 12px 20px;
-  border-radius: 50px;
-  border: 2px solid #FFE5D9;
-  background: #FFF9F5;
-  font-size: 14px;
-  outline: none;
-  color: #555;
-  transition: all 0.3s;
-}
-.search-input::placeholder { color: #CCAAB8; }
-.search-input:focus {
-  background: #fff;
-  border-color: #FFB7B2;
-  box-shadow: 0 0 0 4px rgba(255, 183, 178, 0.2);
-}
-.search-btn {
-  position: absolute;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-.search-btn:hover { opacity: 1; }
-.nav-right { display: flex; align-items: center; gap: 16px; }
-.upload-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 22px;
-  background: #6C63FF;
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
-}
-.upload-btn:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 8px 20px rgba(108, 99, 255, 0.4);
-}
-.btn-icon { font-size: 16px; }
-.user-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  overflow: hidden;
-  cursor: pointer;
-  border: 3px solid #fff;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  position: relative;
-  transition: transform 0.3s;
-}
-.user-avatar:hover { transform: scale(1.1) rotate(5deg); }
-.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-status {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  font-size: 10px;
-  background: #fff;
-  border-radius: 50%;
-  padding: 2px;
-}
+/* ✅ 已删除：所有 .navbar, .lumecho-logo-small, .upload-btn 等导航栏样式 */
+/* 这些样式现在由 DetailNavBar.vue 组件自己管理，避免冲突 */
 
 /* ==================== 主体内容 ==================== */
 .content-wrapper {
@@ -591,7 +490,7 @@ export default {
   50% { transform: scale(1.2); opacity: 0.8; }
 }
 
-/* ==================== 媒体画廊：核心修改区 ==================== */
+/* ==================== 媒体画廊 ==================== */
 .media-gallery {
   margin-bottom: 30px;
   border-radius: 24px;
@@ -618,37 +517,17 @@ export default {
   position: relative;
 }
 
-/* 1 张图：大图模式 */
-.gallery-grid.single-image {
-  grid-template-columns: 1fr;
-}
-.gallery-grid.single-image .gallery-item {
-  aspect-ratio: 16/9;
-}
+.gallery-grid.single-image { grid-template-columns: 1fr; }
+.gallery-grid.single-image .gallery-item { aspect-ratio: 16/9; }
 
-/* 2 张图：左右并排 */
-.gallery-grid.two-images {
-  grid-template-columns: 1fr 1fr;
-}
-.gallery-grid.two-images .gallery-item {
-  aspect-ratio: 4/3;
-}
+.gallery-grid.two-images { grid-template-columns: 1fr 1fr; }
+.gallery-grid.two-images .gallery-item { aspect-ratio: 4/3; }
 
-/* 3 张图：一行三个 */
-.gallery-grid.three-images {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-.gallery-grid.three-images .gallery-item {
-  aspect-ratio: 1/1;
-}
+.gallery-grid.three-images { grid-template-columns: 1fr 1fr 1fr; }
+.gallery-grid.three-images .gallery-item { aspect-ratio: 1/1; }
 
-/* 👇 4 张及以上：强制 2 列布局 (完美 2x2 矩阵) */
-.gallery-grid.multi-images {
-  grid-template-columns: 1fr 1fr;
-}
-.gallery-grid.multi-images .gallery-item {
-  aspect-ratio: 1/1;
-}
+.gallery-grid.multi-images { grid-template-columns: 1fr 1fr; }
+.gallery-grid.multi-images .gallery-item { aspect-ratio: 1/1; }
 
 /* ==================== 正文与标签 ==================== */
 .post-content-body {
@@ -884,13 +763,9 @@ export default {
 @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
 @media (max-width: 768px) {
-  .navbar { padding: 12px 20px; }
-  .search-container { display: none; }
-  .upload-btn span { display: none; }
   .content-wrapper { margin: 20px auto; padding: 0 16px; }
   .post-title-main { font-size: 1.5rem; }
   .interaction-bar { flex-wrap: wrap; justify-content: center; }
   .interaction-btn { padding: 8px 16px; font-size: 13px; }
-  /* 移动端 4 张图也保持 2 列，或者改为 1 列？这里保持 2 列比较紧凑 */
 }
 </style>

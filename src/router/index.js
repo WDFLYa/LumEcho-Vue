@@ -4,7 +4,8 @@ import Login from "@/views/login/LoginPage.vue";
 import Register from "@/views/login/RegisterPage.vue";
 import Home from "@/views/HomePage.vue"
 import PostDetail from '@/views/PostDetail.vue'
-
+import PostUpload from '@/views/PostUpload.vue';
+import UserProfile from '@/views/UserProfile.vue'
 const routes = [
     {
         path: '/',
@@ -26,6 +27,14 @@ const routes = [
     {
         path: '/post/:id',
         component: PostDetail
+    },
+    {
+        path: '/upload',
+        component: PostUpload
+    },
+    {
+        path: '/profile',
+        component: UserProfile
     }
 ]
 
