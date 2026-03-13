@@ -1,10 +1,6 @@
 import request from "@/utils/request";
 
-/**
- * 获取帖子评论列表（树形结构）
- * @param {Number} postId - 帖子 ID
- * @param {Object} params - 分页参数 { page, size }
- */
+
 export function getComments(postId, params) {
     return request.get(`/api/comment/${postId}/comments`, { params });
 }

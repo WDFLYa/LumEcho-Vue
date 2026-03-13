@@ -50,7 +50,6 @@
                 loading="lazy"
                 @error="$event.target.src = defaultCover"
             />
-            <!-- ✅ 已删除“看看”气泡，此处留空，只保留图片 -->
           </div>
 
           <div class="card-info">
@@ -63,9 +62,17 @@
               </div>
 
               <div class="stats">
-                <span class="stat-item" title="点赞">
-                  🤍 {{ post.likes || 0 }}
+                <!-- ✅ 点赞按钮：独立点击事件，阻止冒泡 -->
+                <span
+                    class="stat-item like-stat"
+                    :class="{ 'is-liked': post.isLiked }"
+                    title="点赞"
+                    @click.stop="toggleLikeInList(post)"
+                >
+                  <span class="like-icon">{{ post.isLiked ? '❤️' : '🤍' }}</span>
+                  <span class="like-count">{{ post.likes || 0 }}</span>
                 </span>
+
                 <span class="stat-item" title="评论">
                   💬 {{ post.comments || 0 }}
                 </span>
@@ -98,8 +105,11 @@
 <script>
 import { getHomePosts, getCurrentUserInfo } from "@/api/auth";
 import HomeNavBar from "@/components/NavBar/HomeNavBar.vue";
-import { getAllCategories } from '@/api/category'
-
+import { getAllCategories } from '@/api/category';
+// ✅ 确保这里导出了 toggleLike 方法 (对应后端 POST /{id}/like)
+// 如果你的 api/post.js 里还是 likePost/unlikePost，请改为导入那个，但建议后端统一用 toggle
+import { getLikeStatuses, toggleLike } from '@/api/post';
+import { ElMessage } from 'element-plus';
 export default {
   name: "HomePage",
   components: { HomeNavBar },
@@ -129,6 +139,53 @@ export default {
     goUpload() { this.$router.push("/upload"); },
     goProfile() { this.$router.push("/profile"); },
     goDetail(id) { this.$router.push(`/post/${id}`); },
+
+    // ✅ 核心修改：点赞逻辑
+    async toggleLikeInList(post) {
+      // 1. 检查 Token (键名必须与 request.js 和登录时保存的一致！)
+      const token = localStorage.getItem('user_token');
+
+      if (!token) {
+        ElMessage.warning('您尚未登录，请先登录');
+        this.$router.push('/login');
+        return;
+      }
+
+      // 2. 记录旧状态 (用于失败回滚)
+      const originalLiked = post.isLiked;
+      const originalCount = post.likes;
+
+      // 3. 乐观更新 UI (先变效果，用户体验极快)
+      post.isLiked = !originalLiked;
+      post.likes = originalLiked ? originalCount - 1 : originalCount + 1;
+
+      try {
+        // 4. 发送请求 (调用统一的 toggle 接口)
+        // 注意：如果后端还没改，你这里可能需要改成 await likePost(post.id) 或 unlikePost
+        // 但根据你的后端代码 @PostMapping("/{postId}/like")，这就是一个 toggle 接口
+        await toggleLike(post.id);
+
+        // 成功：什么都不用做，UI 已经是新的了
+        // this.$message.success(post.isLiked ? '点赞成功' : '已取消'); // 可选：太频繁可以不开启
+
+      } catch (error) {
+        // 5. 失败回滚
+        console.error("点赞操作失败", error);
+
+        // 恢复 UI
+        post.isLiked = originalLiked;
+        post.likes = originalCount;
+
+        // 提示用户
+        // 如果是 401，拦截器通常已经跳转了，这里可以不加提示，或者加一个轻微提示
+        if (error.response && error.response.status === 401) {
+          ElMessage.warning('登录已过期，请重新登录');
+        } else {
+          ElMessage.warning('操作失败，请稍后重试');
+        }
+      }
+    },
+
     switchTab(tab) {
       this.activeTab = tab;
       this.offset = 0;
@@ -145,27 +202,40 @@ export default {
       this.hasMore = true;
       this.fetchPosts();
     },
+
     async fetchCategories() {
       try {
         const res = await getAllCategories();
-        if (res.data && res.data.code === 200) this.categoryList = res.data.data;
+        // 兼容拦截器是否解包
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) this.categoryList = data;
       } catch (e) { console.error(e); }
     },
+
     async fetchUserInfo() {
       try {
         const res = await getCurrentUserInfo();
-        if (res.data.code === 200 || res.data.success) {
-          const u = res.data.data;
-          this.currentUserAvatar = u.avatar || this.currentUserAvatar;
-          this.currentUserName = u.username || this.currentUserName;
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        // 未登录或 token 过期时，这里会报错，保持默认游客状态即可
+        // console.log("用户未登录，显示默认信息");
+      }
     },
+
     async fetchPosts() {
       try {
         const sortParam = this.activeTab === 'latest' ? 'time' : 'hot';
         const res = await getHomePosts({ sort: sortParam, offset: this.offset, limit: this.limit });
-        let newPosts = res.data.data.data || [];
+
+        // 兼容不同的响应结构
+        const responseData = res.data.code === 200 ? res.data.data : res.data;
+        let newPosts = responseData.data || [];
+
+        // 1. 数据格式化，初始化 isLiked 为 false
         newPosts = newPosts.map(item => ({
           ...item,
           avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
@@ -176,14 +246,43 @@ export default {
           comments: item.comments || 0,
           category: item.category || '综合',
           categoryId: item.categoryId,
-          timeAgo: item.timeAgo || '刚刚'
+          timeAgo: item.timeAgo || '刚刚',
+          isLiked: false // 默认未点赞
         }));
-        this.hasMore = res.data.data.hasMore || false;
+
+        // 2. 如果用户已登录，批量查询点赞状态
+        const token = localStorage.getItem('user_token');
+        if (token && newPosts.length > 0) {
+          try {
+            const postIds = newPosts.map(p => p.id);
+            const statusRes = await getLikeStatuses(postIds);
+
+            let likeMap = {};
+            const sData = statusRes.data.code === 200 ? statusRes.data.data : statusRes.data;
+
+            if (sData) {
+              likeMap = sData; // 期望格式: { "1": true, "2": false }
+            }
+
+            newPosts.forEach(post => {
+              const idStr = String(post.id);
+              if (likeMap[idStr] === true) {
+                post.isLiked = true;
+              }
+            });
+          } catch (likeErr) {
+            console.warn("获取点赞状态失败，将以未点赞显示", likeErr);
+          }
+        }
+
+        // 3. 更新列表
+        this.hasMore = responseData.hasMore || false;
         this.posts = [...this.posts, ...newPosts];
         this.offset += newPosts.length;
       } catch (e) {
-        console.error(e);
+        console.error("加载帖子失败", e);
         this.hasMore = false;
+        this.$message.error('加载内容失败，请刷新重试');
       }
     }
   }
@@ -307,7 +406,6 @@ export default {
   position: relative;
 }
 
-/* 悬停效果：仅上浮 + 阴影，无遮罩 */
 .post-card:hover {
   transform: translateY(-8px) scale(1.015);
   box-shadow: 0 15px 35px rgba(129, 212, 250, 0.25);
@@ -329,7 +427,6 @@ export default {
   transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* 图片仅放大，保持原色 */
 .post-card:hover .card-cover {
   transform: scale(1.1);
 }
@@ -390,6 +487,7 @@ export default {
   font-weight: 700;
 }
 
+/* 通用统计项样式 */
 .stat-item {
   display: flex;
   align-items: center;
@@ -397,10 +495,41 @@ export default {
   background: #F5F7FA;
   padding: 4px 8px;
   border-radius: 12px;
-  transition: background 0.3s;
+  transition: all 0.3s;
+  cursor: default;
 }
 
-.post-card:hover .stat-item {
+/* 点赞专用样式 */
+.like-stat {
+  cursor: pointer;
+  user-select: none;
+}
+
+.like-stat:not(.is-liked):hover {
+  background: #E1F5FE;
+  color: #0277BD;
+}
+
+/* 已点赞高亮 */
+.like-stat.is-liked {
+  background: #FFEBEE;
+  color: #D32F2F;
+  border: 1px solid #FFCDD2;
+  animation: popHeart 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.like-stat.is-liked:hover {
+  background: #FFCDD2;
+  color: #B71C1C;
+}
+
+@keyframes popHeart {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.post-card:hover .stat-item:not(.like-stat) {
   background: #E1F5FE;
   color: #0277BD;
 }

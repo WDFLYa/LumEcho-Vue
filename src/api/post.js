@@ -39,3 +39,15 @@ export function likePost(id) {
 export function unlikePost(id) {
     return request.post(`/api/post/unlike/${id}`);
 }
+
+export function getLikeStatus(id) {
+    return request.get(`/api/post/${id}/like-status`);
+}
+
+export function getLikeStatuses(ids) {
+    return request.post('/api/post/likes/statuses', ids);
+}
+
+export function toggleLike(postId) {
+    return request.post(`/api/post/${postId}/like`);
+}
