@@ -32,3 +32,13 @@ export function getHomePosts(params) {
 export function getCurrentUserInfo() {
     return request.get("/api/user/getuserinfo");
 }
+
+export function getUserById(id) {
+    return request.get(`/api/user/getuserinfo/${id}`);
+}
+
+export function getUserPosts(userId, page = 1, size = 10) {
+    return request.get("/api/post/user", {
+        params: { userId, page, size }
+    });
+}

@@ -9,17 +9,38 @@
     />
 
     <main class="content-wrapper">
-      <!-- 筛选栏 -->
+      <!-- 筛选栏 (已修改布局) -->
       <div class="filter-bar">
-        <div class="tabs">
-          <button :class="['tab-item', { active: activeTab === 'latest' }]" @click="switchTab('latest')">
-            🕒 最新发现
-          </button>
-          <button :class="['tab-item', { active: activeTab === 'hot' }]" @click="switchTab('hot')">
-            🔥 热门榜单
-          </button>
+
+        <!-- 左侧：Tab 切换 + 特别活动入口 -->
+        <div class="filter-left-group">
+
+          <!-- 1. 基础 Tab (最新/热门) -->
+          <div class="tabs">
+            <button :class="['tab-item', { active: activeTab === 'latest' }]" @click="switchTab('latest')">
+              🕒 最新发现
+            </button>
+            <button :class="['tab-item', { active: activeTab === 'hot' }]" @click="switchTab('hot')">
+              🔥 热门榜单
+            </button>
+          </div>
+
+          <!-- 2. ✨ 新增：特别行动区 (紧挨着 Tab) -->
+          <div class="special-actions">
+            <button class="action-pill activity-btn" @click="goActivity" title="参加摄影活动">
+              <span class="pill-icon">📸</span>
+              <span class="pill-text">摄影活动</span>
+            </button>
+
+            <button class="action-pill challenge-btn" @click="goChallenge" title="加入挑战赛">
+              <span class="pill-icon">🏆</span>
+              <span class="pill-text">挑战赛</span>
+            </button>
+          </div>
+
         </div>
 
+        <!-- 右侧：分类标签 (自动换行) -->
         <div class="categories">
           <span
               class="cat-tag"
@@ -34,12 +55,13 @@
         </div>
       </div>
 
-      <!-- 帖子列表 -->
+      <!-- 帖子列表 (保持不变) -->
       <div class="posts-grid">
         <div
             class="post-card"
             v-for="post in posts"
             :key="post.id"
+            :id="'post-' + post.id"
             @click="goDetail(post.id)"
         >
           <div class="card-image-wrapper">
@@ -62,7 +84,6 @@
               </div>
 
               <div class="stats">
-                <!-- ✅ 点赞按钮：独立点击事件，阻止冒泡 -->
                 <span
                     class="stat-item like-stat"
                     :class="{ 'is-liked': post.isLiked }"
@@ -89,7 +110,7 @@
         </div>
       </div>
 
-      <!-- 加载更多 -->
+      <!-- 加载更多 (保持不变) -->
       <div class="load-more-container" v-if="hasMore">
         <button class="load-more-btn" @click="loadMore">
           ✨ 加载更多灵感
@@ -103,19 +124,20 @@
 </template>
 
 <script>
+// ... (Script 部分保持不变，只需添加两个跳转方法) ...
 import { getHomePosts, getCurrentUserInfo } from "@/api/auth";
 import HomeNavBar from "@/components/NavBar/HomeNavBar.vue";
 import { getAllCategories } from '@/api/category';
-// ✅ 确保这里导出了 toggleLike 方法 (对应后端 POST /{id}/like)
-// 如果你的 api/post.js 里还是 likePost/unlikePost，请改为导入那个，但建议后端统一用 toggle
 import { getLikeStatuses, toggleLike } from '@/api/post';
 import { ElMessage } from 'element-plus';
+
 export default {
   name: "HomePage",
   components: { HomeNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/specialty/avatar.png',
+      // ... (原有数据不变)
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
       searchQuery: '',
       activeTab: 'latest',
@@ -126,8 +148,8 @@ export default {
       hasMore: true,
       offset: 0,
       limit: 8,
-      defaultCover: 'http://localhost:9000/specialty/cover.png',
-      defaultAvatar: 'http://localhost:9000/specialty/avatar.png'
+      defaultCover: 'http://localhost:9000/lumecho/cover.png',
+      defaultAvatar: 'http://localhost:9000/lumecho/avatar.png'
     };
   },
   mounted() {
@@ -135,49 +157,54 @@ export default {
     this.fetchUserInfo();
     this.fetchCategories();
   },
+  activated() {
+    const lastPostId = sessionStorage.getItem("lastPostId");
+    if (!lastPostId) return;
+    this.$nextTick(() => {
+      const el = document.getElementById("post-" + lastPostId);
+      if (el) {
+        el.scrollIntoView({ behavior: "auto", block: "center" });
+      }
+      sessionStorage.removeItem("lastPostId");
+    });
+  },
   methods: {
     goUpload() { this.$router.push("/upload"); },
     goProfile() { this.$router.push("/profile"); },
-    goDetail(id) { this.$router.push(`/post/${id}`); },
+    goDetail(id) {
+      sessionStorage.setItem("lastPostId", id);
+      this.$router.push(`/post/${id}`);
+    },
 
-    // ✅ 核心修改：点赞逻辑
+    // 🚀 新增：跳转到活动页
+    goActivity() {
+      // 请确保你在 router/index.js 中配置了 /activity 路由
+      this.$router.push('/activity');
+    },
+
+    // 🏆 新增：跳转到挑战赛页
+    goChallenge() {
+      // 请确保你在 router/index.js 中配置了 /challenge 路由
+      this.$router.push('/challenge');
+    },
+
     async toggleLikeInList(post) {
-      // 1. 检查 Token (键名必须与 request.js 和登录时保存的一致！)
       const token = localStorage.getItem('user_token');
-
       if (!token) {
         ElMessage.warning('您尚未登录，请先登录');
         this.$router.push('/login');
         return;
       }
-
-      // 2. 记录旧状态 (用于失败回滚)
       const originalLiked = post.isLiked;
       const originalCount = post.likes;
-
-      // 3. 乐观更新 UI (先变效果，用户体验极快)
       post.isLiked = !originalLiked;
       post.likes = originalLiked ? originalCount - 1 : originalCount + 1;
-
       try {
-        // 4. 发送请求 (调用统一的 toggle 接口)
-        // 注意：如果后端还没改，你这里可能需要改成 await likePost(post.id) 或 unlikePost
-        // 但根据你的后端代码 @PostMapping("/{postId}/like")，这就是一个 toggle 接口
         await toggleLike(post.id);
-
-        // 成功：什么都不用做，UI 已经是新的了
-        // this.$message.success(post.isLiked ? '点赞成功' : '已取消'); // 可选：太频繁可以不开启
-
       } catch (error) {
-        // 5. 失败回滚
         console.error("点赞操作失败", error);
-
-        // 恢复 UI
         post.isLiked = originalLiked;
         post.likes = originalCount;
-
-        // 提示用户
-        // 如果是 401，拦截器通常已经跳转了，这里可以不加提示，或者加一个轻微提示
         if (error.response && error.response.status === 401) {
           ElMessage.warning('登录已过期，请重新登录');
         } else {
@@ -185,7 +212,6 @@ export default {
         }
       }
     },
-
     switchTab(tab) {
       this.activeTab = tab;
       this.offset = 0;
@@ -202,16 +228,13 @@ export default {
       this.hasMore = true;
       this.fetchPosts();
     },
-
     async fetchCategories() {
       try {
         const res = await getAllCategories();
-        // 兼容拦截器是否解包
         const data = res.data.code === 200 ? res.data.data : res.data;
         if (data) this.categoryList = data;
       } catch (e) { console.error(e); }
     },
-
     async fetchUserInfo() {
       try {
         const res = await getCurrentUserInfo();
@@ -220,22 +243,14 @@ export default {
           this.currentUserAvatar = data.avatar || this.currentUserAvatar;
           this.currentUserName = data.username || this.currentUserName;
         }
-      } catch (e) {
-        // 未登录或 token 过期时，这里会报错，保持默认游客状态即可
-        // console.log("用户未登录，显示默认信息");
-      }
+      } catch (e) { /* 保持默认 */ }
     },
-
     async fetchPosts() {
       try {
         const sortParam = this.activeTab === 'latest' ? 'time' : 'hot';
         const res = await getHomePosts({ sort: sortParam, offset: this.offset, limit: this.limit });
-
-        // 兼容不同的响应结构
         const responseData = res.data.code === 200 ? res.data.data : res.data;
         let newPosts = responseData.data || [];
-
-        // 1. 数据格式化，初始化 isLiked 为 false
         newPosts = newPosts.map(item => ({
           ...item,
           avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
@@ -247,35 +262,22 @@ export default {
           category: item.category || '综合',
           categoryId: item.categoryId,
           timeAgo: item.timeAgo || '刚刚',
-          isLiked: false // 默认未点赞
+          isLiked: false
         }));
-
-        // 2. 如果用户已登录，批量查询点赞状态
         const token = localStorage.getItem('user_token');
         if (token && newPosts.length > 0) {
           try {
             const postIds = newPosts.map(p => p.id);
             const statusRes = await getLikeStatuses(postIds);
-
             let likeMap = {};
             const sData = statusRes.data.code === 200 ? statusRes.data.data : statusRes.data;
-
-            if (sData) {
-              likeMap = sData; // 期望格式: { "1": true, "2": false }
-            }
-
+            if (sData) likeMap = sData;
             newPosts.forEach(post => {
               const idStr = String(post.id);
-              if (likeMap[idStr] === true) {
-                post.isLiked = true;
-              }
+              if (likeMap[idStr] === true) post.isLiked = true;
             });
-          } catch (likeErr) {
-            console.warn("获取点赞状态失败，将以未点赞显示", likeErr);
-          }
+          } catch (likeErr) { console.warn("获取点赞状态失败", likeErr); }
         }
-
-        // 3. 更新列表
         this.hasMore = responseData.hasMore || false;
         this.posts = [...this.posts, ...newPosts];
         this.offset += newPosts.length;
@@ -306,19 +308,28 @@ export default {
   padding: 30px 20px;
 }
 
-/* --- 筛选栏 --- */
+/* --- 筛选栏 (核心修改) --- */
 .filter-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start; /* 改为顶部对齐，防止高度不一致 */
   margin-bottom: 30px;
   flex-wrap: wrap;
   gap: 20px;
 }
 
+/* 左侧组合：Tabs + 特别活动 */
+.filter-left-group {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Tab 和活动按钮之间的间距 */
+  flex-wrap: wrap;
+}
+
+/* Tabs 样式 */
 .tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   background: #FFF;
   padding: 6px;
   border-radius: 20px;
@@ -350,10 +361,134 @@ export default {
   background: #E1F5FE;
 }
 
+/* ====================
+   🌟 特别行动区 (活动 & 挑战)
+   ==================== */
+/* ====================
+   💎 终极轻奢版：欲望行动区
+   ==================== */
+.special-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  /* 尺寸微调，更显精致 */
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px; /* 字间距拉开一点，显高级 */
+
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  color: #fff;
+
+  /* 基础状态：细腻的阴影 */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* 丝滑过渡 */
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* --- 📸 摄影活动 (极光青绿 - 替换掉难看的金色) --- */
+/* 配色思路：像蒂芙尼蓝加深，或者翡翠的质感，清新且昂贵 */
+.activity-btn {
+  background: linear-gradient(135deg, #4DD0E1 0%, #0097A7 100%);
+  /* 添加一道微妙的高光层 */
+  background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%),
+      linear-gradient(135deg, #4DD0E1 0%, #0097A7 100%);
+}
+
+.activity-btn .pill-icon {
+  font-size: 1.2em;
+  transition: transform 0.4s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.activity-btn:hover {
+  transform: translateY(-3px); /* 轻微上浮，稳重 */
+  /* 悬停时：背景变亮，阴影变成青色的光晕 */
+  background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%),
+      linear-gradient(135deg, #80DEEA 0%, #26C6DA 100%);
+  box-shadow: 0 10px 25px rgba(0, 151, 167, 0.4); /* 青色柔光 */
+}
+
+.activity-btn:hover .pill-icon {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+/* --- 🏆 挑战赛 (尊贵紫晶 - 保留并优化) --- */
+/* 配色思路：深邃的紫水晶，神秘且充满诱惑 */
+.challenge-btn {
+  background: linear-gradient(135deg, #BA68C8 0%, #7B1FA2 100%);
+  background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%),
+      linear-gradient(135deg, #BA68C8 0%, #7B1FA2 100%);
+}
+
+.challenge-btn .pill-icon {
+  font-size: 1.2em;
+  transition: transform 0.4s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.challenge-btn:hover {
+  transform: translateY(-3px);
+  /* 悬停时：背景变亮，阴影变成紫色的光晕 */
+  background-image:
+      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%),
+      linear-gradient(135deg, #CE93D8 0%, #AB47BC 100%);
+  box-shadow: 0 10px 25px rgba(123, 31, 162, 0.4); /* 紫色柔光 */
+}
+
+.challenge-btn:hover .pill-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+/* 移动端适配：保持简洁有力 */
+@media (max-width: 900px) {
+  .special-actions {
+    gap: 10px;
+  }
+  .action-pill {
+    padding: 10px;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .pill-text { display: none; }
+  .activity-btn .pill-icon,
+  .challenge-btn .pill-icon {
+    font-size: 1.3em;
+  }
+  /* 移动端减少动画，保证流畅 */
+  .action-pill:hover {
+    transform: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  }
+  .action-pill:hover .pill-icon {
+    transform: none;
+  }
+}
+
+/* 分类标签 (右侧) */
 .categories {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end; /* 靠右对齐 */
+  flex: 1; /* 占据剩余空间 */
+  min-width: 200px;
 }
 
 .cat-tag {
@@ -385,13 +520,12 @@ export default {
   font-weight: 800;
 }
 
-/* --- 帖子卡片 --- */
+/* --- 帖子卡片 (保持不变) --- */
 .posts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 25px;
 }
-
 .post-card {
   background: #FFFFFF;
   border-radius: 24px;
@@ -405,13 +539,11 @@ export default {
   height: 100%;
   position: relative;
 }
-
 .post-card:hover {
   transform: translateY(-8px) scale(1.015);
   box-shadow: 0 15px 35px rgba(129, 212, 250, 0.25);
   border-color: #B3E5FC;
 }
-
 .card-image-wrapper {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -419,18 +551,15 @@ export default {
   background: #ECEFF1;
   position: relative;
 }
-
 .card-cover {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-
 .post-card:hover .card-cover {
   transform: scale(1.1);
 }
-
 .card-info {
   padding: 16px;
   display: flex;
@@ -438,7 +567,6 @@ export default {
   gap: 10px;
   flex: 1;
 }
-
 .post-title {
   font-size: 16px;
   font-weight: 800;
@@ -450,20 +578,17 @@ export default {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .post-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 4px;
 }
-
 .author-info {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .mini-avatar {
   width: 24px;
   height: 24px;
@@ -472,13 +597,11 @@ export default {
   border: 2px solid #FFF;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
-
 .author-name {
   font-size: 13px;
   color: #78909C;
   font-weight: 600;
 }
-
 .stats {
   display: flex;
   gap: 10px;
@@ -486,8 +609,6 @@ export default {
   font-size: 12px;
   font-weight: 700;
 }
-
-/* 通用统计项样式 */
 .stat-item {
   display: flex;
   align-items: center;
@@ -498,42 +619,33 @@ export default {
   transition: all 0.3s;
   cursor: default;
 }
-
-/* 点赞专用样式 */
 .like-stat {
   cursor: pointer;
   user-select: none;
 }
-
 .like-stat:not(.is-liked):hover {
   background: #E1F5FE;
   color: #0277BD;
 }
-
-/* 已点赞高亮 */
 .like-stat.is-liked {
   background: #FFEBEE;
   color: #D32F2F;
   border: 1px solid #FFCDD2;
   animation: popHeart 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-
 .like-stat.is-liked:hover {
   background: #FFCDD2;
   color: #B71C1C;
 }
-
 @keyframes popHeart {
   0% { transform: scale(1); }
   50% { transform: scale(1.2); }
   100% { transform: scale(1); }
 }
-
 .post-card:hover .stat-item:not(.like-stat) {
   background: #E1F5FE;
   color: #0277BD;
 }
-
 .card-footer {
   display: flex;
   justify-content: space-between;
@@ -542,7 +654,6 @@ export default {
   padding-top: 12px;
   border-top: 2px dashed #F0F4F8;
 }
-
 .category-badge {
   font-size: 11px;
   font-weight: 800;
@@ -554,7 +665,6 @@ export default {
   align-items: center;
   gap: 4px;
 }
-
 .time-ago {
   font-size: 12px;
   color: #B0BEC5;
@@ -566,7 +676,6 @@ export default {
   margin-top: 50px;
   text-align: center;
 }
-
 .load-more-btn {
   padding: 14px 40px;
   background: #FFF;
@@ -579,14 +688,12 @@ export default {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 4px 10px rgba(129, 212, 250, 0.2);
 }
-
 .load-more-btn:hover {
   background: #E1F5FE;
   transform: translateY(-3px) scale(1.05);
   box-shadow: 0 6px 15px rgba(129, 212, 250, 0.4);
   border-style: solid;
 }
-
 .no-more {
   margin-top: 50px;
   text-align: center;
@@ -595,10 +702,51 @@ export default {
   font-weight: 600;
 }
 
-@media (max-width: 768px) {
-  .posts-grid { grid-template-columns: 1fr; gap: 20px; }
+/* --- 动画 --- */
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes shake { 0%, 100% { transform: rotate(0); } 10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); } 20%, 40%, 60%, 80% { transform: rotate(5deg); } }
+
+/* --- 移动端适配 --- */
+@media (max-width: 900px) {
   .filter-bar { justify-content: center; }
-  .tabs { width: 100%; justify-content: center; }
-  .categories { justify-content: center; width: 100%; }
+  .filter-left-group {
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  .tabs { order: 1; }
+  .special-actions { order: 2; margin-top: 10px; }
+
+  /* 小屏隐藏文字，只显示图标 */
+  .pill-text { display: none; }
+  .action-pill {
+    padding: 10px;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    justify-content: center;
+  }
+
+  .categories {
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tabs {
+    flex-direction: column;
+    width: 100%;
+    padding: 4px;
+  }
+  .tab-item {
+    width: 100%;
+    text-align: center;
+  }
+  .special-actions {
+    justify-content: center;
+    width: 100%;
+  }
 }
 </style>

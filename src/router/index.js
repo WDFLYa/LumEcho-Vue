@@ -6,6 +6,10 @@ import Home from "@/views/HomePage.vue"
 import PostDetail from '@/views/PostDetail.vue'
 import PostUpload from '@/views/PostUpload.vue';
 import UserProfile from '@/views/UserProfile.vue'
+import ProfileEdit from '@/views/ProfileEdit.vue'
+import ChallengeList from '@/views/ChallengeList.vue'
+import ActivityList from '@/views/ActivityList.vue'
+
 const routes = [
     {
         path: '/',
@@ -33,14 +37,43 @@ const routes = [
         component: PostUpload
     },
     {
-        path: '/profile',
+        path: '/profile/:id?',  // 👈 注意这里的冒号和问号
+        name: 'UserProfile',
         component: UserProfile
-    }
+    },
+    {
+        path: '/profile/edit',
+        name: 'ProfileEdit',
+        component: ProfileEdit,
+    },
+    {
+        path: '/challenge',
+        name: 'ChallengeList',
+        component: ChallengeList,
+        meta: { title: '热门挑战赛 - LumEcho' } // 可选：设置网页标题
+    },
+    {
+        path: '/activity',
+        name: 'ActivityList',
+        component: ActivityList,
+    },
 ]
 
 const router = createRouter({
     history: createWebHistory(),
-    routes
+    routes,
+
+    // ⭐ 控制页面滚动位置
+    scrollBehavior(to, from, savedPosition) {
+
+        // 浏览器前进后退
+        if (savedPosition) {
+            return savedPosition
+        }
+
+        // 进入新页面滚动到顶部
+        return { top: 0 }
+    }
 })
 
 export default router

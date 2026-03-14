@@ -1,6 +1,6 @@
 <template>
   <div class="upload-page-container">
-    <!-- 1. 导航栏 -->
+    <!-- 导航栏 -->
     <UploadNavBar
         :user-name="currentUser.name"
         :user-avatar="currentUser.avatar"
@@ -9,14 +9,14 @@
     />
 
     <div class="main-content">
-      <!-- 左侧：编辑区 (占据主要空间) -->
+      <!-- 左侧：编辑区 -->
       <div class="editor-section">
 
         <!-- 1. 媒体上传区 -->
         <div class="upload-card glass-panel">
           <div class="card-header">
-            <h3 class="section-title">📸 上传你的灵感</h3>
-            <span class="hint">支持 JPG, PNG, HEIC</span>
+            <h3 class="section-title">📸 晒出你的大作</h3>
+            <span class="hint">最多 9 张哦 🖼️</span>
           </div>
 
           <div
@@ -36,25 +36,37 @@
                 @change="handleFileSelect"
             />
 
+            <!-- 空状态 -->
             <div v-if="uploadedFiles.length === 0" class="empty-state">
               <div class="icon-bounce">🎨</div>
-              <p class="drop-text">拖拽图片到这里，或 <span class="highlight">点击上传</span></p>
-              <span class="sub-hint">让全世界看到你的作品 ✨</span>
+              <p class="drop-text">拖拽图片到这里，或者 <span class="highlight">点我上传</span></p>
+              <span class="sub-hint">✨ 至少传一张，让大家眼前一亮！</span>
             </div>
 
             <!-- 预览列表 -->
             <div v-else class="preview-grid">
               <div v-for="(file, index) in uploadedFiles" :key="index" class="preview-item">
                 <img :src="file.previewUrl" alt="preview" />
-                <button class="remove-btn" @click.stop="removeFile(index)">×</button>
+
+                <!-- ✅ 删除按钮：默认隐藏，hover 显示 -->
+                <button class="remove-btn" @click.stop="removeFile(index)" title="移除这张">
+                  ×
+                </button>
+
                 <div v-if="file.uploading" class="upload-progress">
                   <div class="bar" :style="{ width: file.progress + '%' }"></div>
                 </div>
+                <!-- 封面小皇冠 -->
+                <div v-if="index === 0" class="cover-crown" title="封面大图">👑</div>
               </div>
 
               <!-- 继续添加 -->
-              <div class="add-more" @click.stop="triggerFileInput">
-                <span class="plus-icon">+</span>
+              <div
+                  v-if="uploadedFiles.length < 9"
+                  class="add-more"
+                  @click.stop="triggerFileInput"
+              >
+                <span class="plus-icon">＋</span>
               </div>
             </div>
           </div>
@@ -62,24 +74,25 @@
 
         <!-- 2. 基本信息区 -->
         <div class="info-card glass-panel">
-          <h3 class="section-title">✍️ 讲述故事</h3>
+          <h3 class="section-title">✍️ 讲讲背后的故事</h3>
 
           <!-- 标题 -->
           <div class="form-group">
-            <label class="form-label">标题</label>
+            <label class="form-label">💡 作品标题</label>
             <input
                 v-model="form.title"
                 type="text"
-                placeholder="给你的作品起个好听的名字..."
+                placeholder="起个好听的标题吧！！"
                 maxlength="50"
                 class="input-field"
             />
+            <div v-if="errors.title" class="error-msg">{{ errors.title }}</div>
             <div class="char-count">{{ form.title.length }}/50</div>
           </div>
 
           <!-- 分类选择 -->
           <div class="form-group">
-            <label class="form-label">选择分类 <span class="required">*</span></label>
+            <label class="form-label">🏷️ 挑选一个标签</label>
             <div class="category-selector">
               <button
                   v-for="cat in categories"
@@ -92,18 +105,18 @@
                 <span class="cat-icon">{{ getCategoryIcon(cat.name) }}</span>
                 {{ cat.name }}
               </button>
-              <div v-if="categories.length === 0" class="loading-cat">正在加载分类...</div>
+              <div v-if="categories.length === 0" class="loading-cat">正在努力加载分类... 🐢</div>
             </div>
             <div v-if="errors.categoryId" class="error-msg">{{ errors.categoryId }}</div>
           </div>
 
           <!-- 内容描述 -->
           <div class="form-group">
-            <label class="form-label">创作灵感 <span class="required">*</span></label>
+            <label class="form-label">📝 创作灵感</label>
             <div class="textarea-wrapper">
               <textarea
                   v-model="form.content"
-                  placeholder="分享拍摄时的心情、参数或是背后的故事..."
+                  placeholder="当时的心情？拍摄参数？还是想对大家说的话？..."
                   rows="6"
                   class="input-field textarea"
               ></textarea>
@@ -116,32 +129,36 @@
         </div>
       </div>
 
-      <!-- 右侧：实时预览区 (布局优化：不再悬浮，而是自然流式布局或固定列) -->
+      <!-- 右侧：实时预览区 -->
       <div class="preview-section">
-        <!-- 包装器：确保在长页面中也能稳定显示 -->
         <div class="preview-wrapper">
           <div class="preview-card glass-panel">
-            <h3 class="section-title">👁️ 预览效果</h3>
+            <h3 class="section-title">👀 看看效果</h3>
             <div class="preview-mockup">
               <div class="mockup-header">
                 <img :src="currentUser.avatar" class="mockup-avatar" onerror="this.src='http://localhost:9000/specialty/avatar.png'" />
                 <div class="mockup-info">
                   <div class="mockup-name">{{ currentUser.name }}</div>
-                  <div class="mockup-time">刚刚发布</div>
+                  <div class="mockup-time">刚刚发布 🚀</div>
                 </div>
               </div>
-              <div class="mockup-title">{{ form.title || '作品标题' }}</div>
+
+              <div class="mockup-title">{{ form.title || '这里会显示标题...' }}</div>
+
               <div class="mockup-image-container">
                 <img v-if="uploadedFiles[0]" :src="uploadedFiles[0].previewUrl" class="mockup-img" />
                 <div v-else class="mockup-placeholder">
-                  <span style="font-size: 24px; opacity: 0.5;">🖼️</span>
-                  <p>图片将显示在这里</p>
+                  <span style="font-size: 32px; opacity: 0.3;">🖼️</span>
+                  <p style="font-size: 12px; color: #999; margin-top: 8px;">坐等图片...</p>
                 </div>
               </div>
-              <div class="mockup-content">{{ form.content || '你的故事将显示在这里...' }}</div>
+
+              <div class="mockup-content">{{ form.content || '你的精彩故事将显示在这里...' }}</div>
+
               <div class="mockup-tags">
-                <span class="tag-pill">{{ getCategoryName(form.categoryId) || '分类' }}</span>
+                <span class="tag-pill">{{ getCategoryName(form.categoryId) || '未分类' }}</span>
               </div>
+
               <div class="mockup-actions">
                 <span class="action-icon">❤️</span>
                 <span class="action-icon">💬</span>
@@ -150,7 +167,7 @@
             </div>
           </div>
 
-          <!-- 重新设计的提交按钮：现代、简洁、专业 -->
+          <!-- ✅ 提交按钮：回归经典黑/深灰风格，去除了 AI 味渐变 -->
           <button class="submit-btn-modern" @click="handleSubmit" :disabled="isSubmitting">
             <span v-if="isSubmitting" class="spinner"></span>
             <span v-else>确认发布</span>
@@ -162,23 +179,33 @@
         </div>
       </div>
     </div>
+
+    <!-- 自定义 Toast 组件 -->
+    <transition name="toast-fade">
+      <div v-if="toastVisible" class="custom-toast" :class="toastType">
+        <span class="toast-icon">{{ toastIcon }}</span>
+        <span class="toast-message">{{ toastMessage }}</span>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script>
-import axios from 'axios';
-import UploadNavBar from '@/components/NavBar/UploadNavBar.vue'; // 确保路径正确
+import { publishPost } from "@/api/post"
+import UploadNavBar from '@/components/NavBar/UploadNavBar.vue';
 import { getCurrentUserInfo } from "@/api/auth";
 import { getAllCategories } from '@/api/category'
+import { uploadFile } from "@/api/file"
 
 export default {
   name: "PostUpload",
   components: { UploadNavBar },
   data() {
     return {
+      MAX_IMAGES: 9,
       currentUser: {
-        name: '神秘摄影师', // 默认值
-        avatar: 'http://localhost:9000/specialty/avatar.png' // 默认值
+        name: '神秘摄影师',
+        avatar: 'http://localhost:9000/specialty/avatar.png'
       },
       form: {
         title: '',
@@ -190,15 +217,42 @@ export default {
       uploadedFiles: [],
       isDragging: false,
       isSubmitting: false,
-      errors: {}
+      errors: {},
+
+      toastVisible: false,
+      toastMessage: '',
+      toastType: 'info',
+      toastTimer: null
     };
+  },
+  computed: {
+    toastIcon() {
+      const map = {
+        success: '🎉',
+        warning: '⚠️',
+        error: '😭',
+        info: '💡'
+      };
+      return map[this.toastType] || '💡';
+    }
   },
   mounted() {
     this.fetchUserInfo();
     this.fetchCategories();
   },
   methods: {
-    // 获取用户信息
+    showToast(msg, type = 'info') {
+      this.toastMessage = msg;
+      this.toastType = type;
+      this.toastVisible = true;
+
+      if (this.toastTimer) clearTimeout(this.toastTimer);
+
+      this.toastTimer = setTimeout(() => {
+        this.toastVisible = false;
+      }, 2500);
+    },
+
     async fetchUserInfo() {
       try {
         const res = await getCurrentUserInfo();
@@ -206,13 +260,11 @@ export default {
           const data = res.data.data;
           if (data) {
             this.currentUser.name = data.username || '神秘摄影师';
-            // 如果后端返回的 avatar 为空，则使用默认图
             this.currentUser.avatar = data.avatar || 'http://localhost:9000/specialty/avatar.png';
           }
         }
       } catch (error) {
-        console.warn('获取用户信息失败，使用默认值', error);
-        // 保持默认值不变
+        console.warn('获取用户信息失败', error);
       }
     },
 
@@ -228,12 +280,14 @@ export default {
     },
 
     getCategoryIcon(name) {
+      if (!name) return '🏷️';
+      const cleanName = name.trim();
       const map = {
-        '人像': '👤', '风景': '🏔️', '纪实': '📰',
-        '动漫': '🎨', '建筑': '🏛️', '动物': '🐾',
-        '其他': '✨'
+        '人像': '👤', '风景': '🏔️', '技术': '💻',
+        '日常': '🎨', '建筑': '🏛️', '动物': '🐾',
+        '美食': '🍔', '旅行': '✈️', '其他': '✨'
       };
-      return map[name] || '🏷️';
+      return map[cleanName] || '🏷️';
     },
 
     getCategoryName(id) {
@@ -241,45 +295,95 @@ export default {
       return cat ? cat.name : '';
     },
 
-    triggerFileInput() { this.$refs.fileInput.click(); },
-    handleFileSelect(e) { this.processFiles(Array.from(e.target.files)); },
+    triggerFileInput() {
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = null;
+        this.$refs.fileInput.click();
+      }
+    },
+
+    handleFileSelect(e) {
+      this.processFiles(Array.from(e.target.files));
+    },
+
     handleFileDrop(e) {
       this.isDragging = false;
-      this.processFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      this.processFiles(files);
     },
+
     processFiles(files) {
-      files.forEach(file => {
-        if (file.size > 20 * 1024 * 1024) return alert('文件太大啦 (>20MB)');
+      if (files.length === 0) return;
+      const remainingSlots = this.MAX_IMAGES - this.uploadedFiles.length;
+
+      if (remainingSlots <= 0) {
+        this.showToast(`哎呀，最多只能放 ${this.MAX_IMAGES} 张图哦~`, 'warning');
+        return;
+      }
+
+      let filesToAdd = files;
+      if (files.length > remainingSlots) {
+        filesToAdd = files.slice(0, remainingSlots);
+        this.showToast(`太热情啦！只保留前 ${this.MAX_IMAGES} 张最棒的`, 'info');
+      }
+
+      filesToAdd.forEach(file => {
+        if (file.size > 20 * 1024 * 1024) {
+          this.showToast(`文件 "${file.name}" 太大啦 (>20MB)，吃不下呀`, 'error');
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
           this.uploadedFiles.push({
-            file, previewUrl: e.target.result, progress: 0, uploading: false, serverUrl: null
+            file,
+            previewUrl: e.target.result,
+            progress: 0,
+            uploading: false,
+            serverUrl: null
           });
         };
         reader.readAsDataURL(file);
       });
     },
-    removeFile(index) { this.uploadedFiles.splice(index, 1); },
+
+    removeFile(index) {
+      this.uploadedFiles.splice(index, 1);
+    },
 
     async uploadImages() {
-      // 👇 预留真实上传逻辑
+      if (this.uploadedFiles.length === 0) return [];
+      const urls = [];
       for (let item of this.uploadedFiles) {
-        if (!item.serverUrl) {
-          item.uploading = true;
-          // 模拟上传延迟
-          await new Promise(r => setTimeout(r, 800));
-          item.progress = 100;
-          item.serverUrl = item.previewUrl; // 模拟成功
-          item.uploading = false;
+        if (item.serverUrl) {
+          urls.push(item.serverUrl);
+          continue;
         }
+        item.uploading = true;
+        try {
+          const res = await uploadFile(item.file, "POST_IMAGE");
+          if (res.data.code === 200) {
+            item.serverUrl = res.data.data;
+            urls.push(item.serverUrl);
+            item.progress = 100;
+          } else {
+            throw new Error(res.data.msg || "上传失败");
+          }
+        } catch (err) {
+          item.uploading = false;
+          throw err;
+        }
+        item.uploading = false;
       }
-      return this.uploadedFiles.map(f => f.serverUrl);
+      return urls;
     },
 
     async generateAIDescription() {
-      this.form.content = "✨ AI 正在构思中...";
+      if(!this.form.content.trim()) {
+        this.form.content = "✨ AI 正在思考中...";
+      }
       setTimeout(() => {
         this.form.content = "光影在这一刻凝固，仿佛时间也停止了流动。这不仅仅是一张照片，更是我对这个世界独特的观察与感悟。";
+        this.showToast("AI 脑洞大开，润色完成！✨", 'success');
       }, 1000);
     },
 
@@ -288,16 +392,34 @@ export default {
 
     async handleSubmit() {
       this.errors = {};
-      let valid = true;
-      if (!this.form.title.trim()) { this.errors.title = '标题不能为空'; valid = false; }
-      if (!this.form.content.trim()) { this.errors.content = '内容不能为空'; valid = false; }
-      if (!this.form.categoryId) { this.errors.categoryId = '别忘了选个分类哦'; valid = false; }
-      if (this.uploadedFiles.length === 0) { alert('先上传图片吧！'); return; }
-      if (!valid) return;
+
+      if (!this.form.title.trim()) {
+        this.errors.title = '标题不能为空';
+        this.showToast('💡 先给作品起个名字吧', 'warning');
+        return;
+      }
+      if (!this.form.content.trim()) {
+        this.errors.content = '内容不能为空';
+        this.showToast('📝 写点什么吧，哪怕一句话也好', 'warning');
+        return;
+      }
+      if (!this.form.categoryId) {
+        this.errors.categoryId = '请选择分类';
+        this.showToast('🏷️ 别忘了选个标签归类哦', 'warning');
+        return;
+      }
+
+      if (this.uploadedFiles.length === 0) {
+        this.showToast('📸 还没上传图片呢，至少来一张！', 'warning');
+        document.querySelector('.upload-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
 
       this.isSubmitting = true;
+
       try {
         const urls = await this.uploadImages();
+
         const payload = {
           title: this.form.title,
           content: this.form.content,
@@ -305,20 +427,36 @@ export default {
           imageUrls: urls
         };
 
-        const res = await axios.post('/api/post/publish', payload);
+        const res = await publishPost(payload);
+
         if (res.data.code === 200 || res.data.success) {
-          // 可以使用更优雅的提示组件代替 alert
-          alert('发布成功！🎉 你的作品闪闪发光啦！');
-          this.$router.push('/home');
+          this.showToast('🎉 发布成功！马上带你去首页...', 'success');
+
+          setTimeout(() => {
+            this.resetForm();
+            this.$router.push('/home').then(() => {
+              window.scrollTo(0, 0);
+              window.dispatchEvent(new Event('refresh-home-list'));
+            });
+          }, 1500);
         } else {
-          alert('发布失败：' + (res.data.msg || '未知错误'));
+          this.showToast('😭 发布失败：' + (res.data.msg || '未知错误'), 'error');
         }
+
       } catch (e) {
         console.error(e);
-        alert('网络开小差了，请稍后再试');
+        this.showToast('😭 网络开小差了，请稍后再试', 'error');
       } finally {
         this.isSubmitting = false;
       }
+    },
+
+    resetForm() {
+      this.form.title = '';
+      this.form.content = '';
+      this.form.categoryId = null;
+      this.uploadedFiles = [];
+      this.errors = {};
     }
   }
 };
@@ -328,20 +466,22 @@ export default {
 /* --- 全局布局 --- */
 .upload-page-container {
   min-height: 100vh;
+  /* ✅ 背景还原：清爽的浅色渐变 */
   background: linear-gradient(180deg, #FFF9F5 0%, #F3F0FF 100%);
   color: #444;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   padding-bottom: 60px;
+  position: relative;
 }
 
 .main-content {
   display: grid;
-  grid-template-columns: 1fr 340px; /* 固定右侧宽度 */
+  grid-template-columns: 1fr 340px;
   gap: 40px;
   max-width: 1200px;
   margin: 40px auto;
   padding: 0 24px;
-  align-items: start; /* 关键：防止拉伸 */
+  align-items: start;
 }
 
 /* --- 卡片通用样式 --- */
@@ -353,6 +493,11 @@ export default {
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 12px 40px rgba(108, 99, 255, 0.08);
   margin-bottom: 24px;
+  transition: transform 0.3s ease;
+}
+
+.glass-panel:hover {
+  transform: translateY(-2px);
 }
 
 .section-title {
@@ -389,6 +534,7 @@ export default {
   background: rgba(255, 255, 255, 0.6);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  user-select: none;
 }
 .dropzone:hover, .dropzone.is-dragging {
   border-color: #6C63FF;
@@ -421,6 +567,8 @@ export default {
 }
 .preview-item:hover { transform: scale(1.03); }
 .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ✅ 删除按钮：默认隐藏，hover 显示 */
 .remove-btn {
   position: absolute;
   top: 8px; right: 8px;
@@ -432,9 +580,38 @@ export default {
   font-size: 18px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
+  transition: all 0.2s;
+  z-index: 2;
+  opacity: 0; /* 默认不可见 */
+  transform: scale(0.8);
 }
-.remove-btn:hover { transform: scale(1.1); }
+/* 鼠标悬停在图片项上时显示删除按钮 */
+.preview-item:hover .remove-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+.remove-btn:hover {
+  background: #ff4d4f;
+  transform: scale(1.1);
+}
+
+.cover-crown {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  z-index: 3;
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
 .add-more {
   display: flex; align-items: center; justify-content: center;
   background: #F3F0FF;
@@ -444,8 +621,9 @@ export default {
   cursor: pointer;
   transition: all 0.2s;
   aspect-ratio: 1;
+  border: 2px dashed #D4C4FB;
 }
-.add-more:hover { background: #E5E0FF; transform: scale(1.05); }
+.add-more:hover { background: #E5E0FF; transform: scale(1.05); border-style: solid; }
 
 /* --- 表单样式 --- */
 .form-group { margin-bottom: 28px; }
@@ -505,7 +683,7 @@ export default {
   background: #FFF5F5;
 }
 .cat-option.active {
-  background: #222; /* 改为深色，更高级 */
+  background: #222;
   color: #fff;
   border-color: #222;
   transform: translateY(-2px);
@@ -533,19 +711,16 @@ export default {
 
 .error-msg { color: #FF6B6B; font-size: 13px; margin-top: 8px; font-weight: 600; }
 
-/* --- 右侧预览区 (布局修正) --- */
+/* --- 右侧预览区 --- */
 .preview-section {
-  /* 不再使用 position: relative 导致的问题，而是作为 Grid 的一列 */
   width: 100%;
 }
 .preview-wrapper {
-  /* 包裹器，确保内部元素正常流式排列 */
   display: flex;
   flex-direction: column;
   gap: 24px;
-  /* 如果需要固定在视口，可以用 sticky，但这里为了稳定性，我们让它随页面滚动，或者只在小屏幕 sticky */
   position: sticky;
-  top: 100px; /* 距离顶部距离 */
+  top: 100px;
 }
 
 .preview-mockup {
@@ -580,12 +755,16 @@ export default {
   font-weight: 800; font-size: 18px; color: #111;
   line-height: 1.4;
 }
+
 .mockup-image-container {
-  width: 100%; aspect-ratio: 4/3;
+  width: 100%;
+  aspect-ratio: 4/3;
   background: #F8F9FA;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
+  position: relative;
 }
+
 .mockup-img { width: 100%; height: 100%; object-fit: cover; }
 .mockup-placeholder {
   color: #ccc; font-size: 14px;
@@ -619,11 +798,11 @@ export default {
 .action-icon { cursor: pointer; transition: transform 0.2s; }
 .action-icon:hover { transform: scale(1.2); }
 
-/* --- 🚀 重新设计的提交按钮 (现代、简洁) --- */
+/* --- ✅ 提交按钮：经典黑/深灰风格，去除了 AI 味 --- */
 .submit-btn-modern {
   width: 100%;
   padding: 18px;
-  background: #222; /* 纯黑/深灰，高级感 */
+  background: #222; /* 纯深色背景 */
   color: #fff;
   border: none;
   border-radius: 16px;
@@ -640,7 +819,7 @@ export default {
   overflow: hidden;
 }
 .submit-btn-modern:hover:not(:disabled) {
-  background: #000;
+  background: #000; /* hover 变纯黑 */
   transform: translateY(-3px);
   box-shadow: 0 14px 24px rgba(0,0,0,0.2);
 }
@@ -652,7 +831,6 @@ export default {
   cursor: not-allowed;
   box-shadow: none;
 }
-/* 简单的 loading 动画 */
 .spinner {
   width: 18px; height: 18px;
   border: 2px solid rgba(255,255,255,0.3);
@@ -667,6 +845,52 @@ export default {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes popIn {
+  0% { transform: scale(0); }
+  80% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* ✅ 自定义 Toast 样式 */
+.custom-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  z-index: 9999;
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.custom-toast.success { background: rgba(34, 197, 94, 0.9); }
+.custom-toast.warning { background: rgba(245, 158, 11, 0.9); }
+.custom-toast.error { background: rgba(239, 68, 68, 0.9); }
+.custom-toast.info { background: rgba(59, 130, 246, 0.9); }
+
+.toast-icon { font-size: 16px; }
+.toast-message { letter-spacing: 0.5px; }
+
+/* Toast 动画 */
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(40px);
+}
+
 /* 移动端适配 */
 @media (max-width: 900px) {
   .main-content {
@@ -674,8 +898,8 @@ export default {
     gap: 30px;
   }
   .preview-section {
-    order: -1; /* 移动端可以把预览放上面，或者隐藏 */
-    display: none; /* 暂时隐藏，避免拥挤 */
+    order: -1;
+    display: none;
   }
   .submit-btn-modern {
     position: fixed;
@@ -688,6 +912,12 @@ export default {
   }
   .upload-page-container {
     padding-bottom: 100px;
+  }
+  .custom-toast {
+    bottom: 90px;
+    max-width: 90%;
+    justify-content: center;
+    text-align: center;
   }
 }
 </style>

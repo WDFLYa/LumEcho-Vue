@@ -5,7 +5,11 @@
       mode="out-in": 关键属性！让旧页面先退出，新页面再进入，避免两个页面重叠闪烁
     -->
     <transition name="fade-slide" mode="out-in">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <keep-alive include="HomePage">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </transition>
   </div>
 </template>

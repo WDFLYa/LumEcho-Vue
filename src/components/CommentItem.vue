@@ -4,10 +4,10 @@
       <!-- 头像：精致边框 + 悬浮感 -->
       <div class="avatar-box" @click="goProfile(comment.userId)">
         <img
-            :src="comment.avatar || 'http://localhost:9000/specialty/avatar.png'"
+            :src="comment.avatar || 'http://localhost:9000/lumecho/avatar.png'"
             class="comment-avatar"
             alt="avatar"
-            @error="$event.target.src = defaultAvatar"
+            @error="$event.target.src = 'http://localhost:9000/lumecho/avatar.png'"
         />
       </div>
 

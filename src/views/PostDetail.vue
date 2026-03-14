@@ -1,7 +1,6 @@
 <template>
   <div class="detail-container">
     <!-- 顶部导航栏 -->
-    <!-- ✅ 修改点 1: 增加了 :user-name 绑定 -->
     <DetailNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
@@ -32,6 +31,14 @@
 
       <!-- 媒体展示区：智能网格布局 -->
       <div class="media-gallery" v-if="post.imageUrls && post.imageUrls.length > 0">
+        <!--
+          布局逻辑说明：
+          1 张 -> single-image (大图)
+          2 张 -> two-images (2列)
+          3 张 -> three-images (3列)
+          4 张 -> four-images (2x2 特殊布局) ⭐
+          5+ 张 -> multi-images (3列，自动换行)
+        -->
         <div class="gallery-grid" :class="gridClass">
           <img
               v-for="(img, index) in post.imageUrls"
@@ -67,12 +74,12 @@
       <div class="interaction-bar">
         <button class="interaction-btn like-btn" :class="{ active: isLiked }" @click="toggleLike">
           <span class="btn-icon">{{ isLiked ? '❤️' : '🤍' }}</span>
-          <span>{{ likeCount }}</span>
+          <span>{{ post.likeCount }}</span>
         </button>
 
         <button class="interaction-btn comment-btn" @click="scrollToComment">
           <span class="btn-icon">💬</span>
-          <span>{{ totalComments }}</span>
+          <span>{{ post.commentCount }}</span>
         </button>
 
         <button class="interaction-btn share-btn" @click="handleShare">
@@ -92,7 +99,7 @@
       <div class="comments-section" ref="commentSection">
         <h3 class="section-title">
           <span>💭 大家怎么说</span>
-          <span class="count-badge">{{ totalComments }}</span>
+          <span class="count-badge">{{ post.commentCount }}</span>
         </h3>
 
         <!-- 发表评论输入框 -->
@@ -161,12 +168,13 @@
 </template>
 
 <script>
-import { getPostById, likePost, unlikePost } from "@/api/post";
+import { getPostById, toggleLike, getLikeStatus } from "@/api/post";
 import { getComments, createComment } from "@/api/comment";
 import { getCurrentUserInfo } from "@/api/auth";
 
 import CommentItem from "@/components/CommentItem.vue";
 import DetailNavBar from "@/components/NavBar/DetailNavBar.vue";
+import {ElMessage} from "element-plus";
 
 export default {
   name: "PostDetail",
@@ -176,17 +184,20 @@ export default {
   },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/specialty/avatar.png',
-      currentUserName: '神秘用户', //当前登录用户
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '神秘用户',
       postId: null,
       loading: true,
       post: {
         title: '',
         content: '',
+        userId: null,
         imageUrls: [],
         authorName: '',
         authorAvatar: '',
         createTime: '',
+        likeCount: 0,
+        commentCount: 0,
         categories: []
       },
       comments: [],
@@ -194,24 +205,23 @@ export default {
       currentPage: 1,
       hasMoreComments: true,
       isLiked: false,
-      likeCount: 0,
       newCommentContent: '',
       replyingTo: null,
       replyingToUsername: '',
       submitting: false,
-
-      // Toast 提示控制
       toastVisible: false,
       toastMessage: ''
     };
   },
   computed: {
+    // ✅ 核心逻辑：针对 4 张图片做特殊处理
     gridClass() {
       const count = this.post.imageUrls.length;
       if (count === 1) return 'single-image';
       if (count === 2) return 'two-images';
       if (count === 3) return 'three-images';
-      return 'multi-images';
+      if (count === 4) return 'four-images'; // ⭐ 4 张图使用 2x2 布局
+      return 'multi-images'; // 5 张及以上回归微信 3 列布局
     }
   },
   created() {
@@ -220,19 +230,43 @@ export default {
       this.loading = false;
       return;
     }
-    this.fetchUserInfo(); // 先获取当前用户信息
+    this.fetchUserInfo();
     this.fetchPostDetail();
     this.fetchComments();
+    this.fetchLikeStatus();
+  },
+  mounted() {
+    this.$nextTick(() => {
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+      window.scrollTo({
+        top: 0,
+        behavior: "auto"
+      })
+    })
   },
   methods: {
     goHome() { this.$router.push('/') },
-    goProfile() { this.$router.push('/profile') },
+    goProfile() { this.$router.push(`/profile/${this.post.userId}`) },
     goUpload() { this.$router.push('/upload') },
 
     showToast(msg) {
       this.toastMessage = msg;
       this.toastVisible = true;
       setTimeout(() => { this.toastVisible = false; }, 2500);
+    },
+
+    async fetchLikeStatus() {
+      if (!this.postId) return;
+      try {
+        const res = await getLikeStatus(this.postId);
+        if (res.data.code === 200 || res.data.success) {
+          this.isLiked = res.data.data || false;
+        }
+      } catch (error) {
+        console.error('获取点赞状态失败', error);
+        this.isLiked = false;
+      }
     },
 
     async fetchUserInfo() {
@@ -242,10 +276,9 @@ export default {
           const userInfo = res.data.data;
           this.currentUserAvatar = userInfo.avatar;
           this.currentUserName = userInfo.username;
-          console.log('✅ 用户信息已加载:', this.currentUserName);
         }
       } catch (error) {
-        console.error('❌ 获取用户信息失败:', error);
+        console.error('获取用户信息失败:', error);
       }
     },
 
@@ -254,18 +287,18 @@ export default {
         const res = await getPostById(this.postId);
         if (res.data.code === 200 || res.data.success) {
           const data = res.data.data;
-
           this.post = {
             title: data.title || '无标题',
             content: data.content || '暂无内容',
+            likeCount: data.likeCount || 0,
+            commentCount: data.commentCount || 0,
             imageUrls: data.imageUrls || [],
             createTime: data.createTime || '',
             authorName: data.username || '神秘摄影师',
-            authorAvatar: data.avatar || 'http://localhost:9000/specialty/avatar.png',
+            userId: data.userId,
+            authorAvatar: data.avatar || 'http://localhost:9000/lumecho/avatar.png',
             categories: data.categoryName ? [data.categoryName] : []
           };
-
-          this.likeCount = data.likeCount || 0;
         }
       } catch (e) {
         console.error(e);
@@ -298,19 +331,19 @@ export default {
     },
 
     async toggleLike() {
-      const originalState = this.isLiked;
-      const originalCount = this.likeCount;
+      const originalLiked = this.isLiked;
+      const originalCount = this.post.likeCount;
 
-      this.isLiked = !this.isLiked;
-      this.likeCount += this.isLiked ? 1 : -1;
+      this.isLiked = !originalLiked;
+      this.post.likeCount = originalLiked ? originalCount - 1 : originalCount + 1;
 
       try {
-        if (this.isLiked) { await likePost(this.postId); }
-        else { await unlikePost(this.postId); }
-      } catch (e) {
-        this.isLiked = originalState;
-        this.likeCount = originalCount;
-        this.showToast("网络开小差了，点赞失败~");
+        await toggleLike(this.postId);
+        this.showToast(this.isLiked ? "点赞成功 ❤️" : "已取消点赞");
+      } catch (error) {
+        this.isLiked = originalLiked;
+        this.post.likeCount = originalCount;
+        ElMessage.warning('操作失败，请稍后重试');
       }
     },
 
@@ -358,6 +391,7 @@ export default {
           content: this.newCommentContent,
           parentId: this.replyingTo ? this.replyingTo.id : null
         });
+        this.post.commentCount++
         this.currentPage = 1;
         await this.fetchComments();
         this.newCommentContent = '';
@@ -418,9 +452,6 @@ export default {
   opacity: 0;
   transform: translate(-50%, -20px);
 }
-
-/* ✅ 已删除：所有 .navbar, .lumecho-logo-small, .upload-btn 等导航栏样式 */
-/* 这些样式现在由 DetailNavBar.vue 组件自己管理，避免冲突 */
 
 /* ==================== 主体内容 ==================== */
 .content-wrapper {
@@ -500,7 +531,7 @@ export default {
 }
 .gallery-grid {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   background: #f0f0f0;
 }
 .gallery-item {
@@ -517,17 +548,45 @@ export default {
   position: relative;
 }
 
-.gallery-grid.single-image { grid-template-columns: 1fr; }
-.gallery-grid.single-image .gallery-item { aspect-ratio: 16/9; }
+/* --- 1 张图：大图模式 --- */
+.gallery-grid.single-image {
+  grid-template-columns: 1fr;
+}
+.gallery-grid.single-image .gallery-item {
+  aspect-ratio: 16/9; /* 或者 auto 保持原比例 */
+}
 
-.gallery-grid.two-images { grid-template-columns: 1fr 1fr; }
-.gallery-grid.two-images .gallery-item { aspect-ratio: 4/3; }
+/* --- 2 张图：并排模式 --- */
+.gallery-grid.two-images {
+  grid-template-columns: 1fr 1fr;
+}
+.gallery-grid.two-images .gallery-item {
+  aspect-ratio: 1/1;
+}
 
-.gallery-grid.three-images { grid-template-columns: 1fr 1fr 1fr; }
-.gallery-grid.three-images .gallery-item { aspect-ratio: 1/1; }
+/* --- 3 张图：三列模式 --- */
+.gallery-grid.three-images {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.gallery-grid.three-images .gallery-item {
+  aspect-ratio: 1/1;
+}
 
-.gallery-grid.multi-images { grid-template-columns: 1fr 1fr; }
-.gallery-grid.multi-images .gallery-item { aspect-ratio: 1/1; }
+/* --- ⭐ 4 张图：2x2 特殊模式 (Instagram 风格) --- */
+.gallery-grid.four-images {
+  grid-template-columns: 1fr 1fr; /* 强制 2 列 */
+}
+.gallery-grid.four-images .gallery-item {
+  aspect-ratio: 1/1; /* 正方形 */
+}
+
+/* --- 5 张及以上：微信九宫格模式 (每行 3 个) --- */
+.gallery-grid.multi-images {
+  grid-template-columns: repeat(3, 1fr); /* 固定 3 列 */
+}
+.gallery-grid.multi-images .gallery-item {
+  aspect-ratio: 1/1;
+}
 
 /* ==================== 正文与标签 ==================== */
 .post-content-body {
@@ -767,5 +826,10 @@ export default {
   .post-title-main { font-size: 1.5rem; }
   .interaction-bar { flex-wrap: wrap; justify-content: center; }
   .interaction-btn { padding: 8px 16px; font-size: 13px; }
+
+  /* 移动端优化：4张图在极小屏幕上也可以保持2x2，或者根据需要调整 */
+  .gallery-grid.four-images {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 </style>
