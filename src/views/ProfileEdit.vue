@@ -2,8 +2,8 @@
   <div class="profile-edit-container">
     <!-- 专用导航栏 (已适配绿色系) -->
     <EditNavBar
-        :user-name="formData.username"
-        :user-avatar="formData.avatar"
+        :user-name="currentUserName"
+        :user-avatar="currentUserAvatar"
         @profile="goProfile"
     />
 
@@ -168,13 +168,15 @@
 
 <script>
 import EditNavBar from '@/components/NavBar/EditNavBar.vue';
-
+import { getCurrentUserInfo } from "@/api/auth";
 export default {
   name: "ProfileEdit",
   components: { EditNavBar },
   data() {
     return {
       defaultAvatar: 'http://localhost:9000/specialty/avatar.png',
+      currentUserAvatar: '',
+      currentUserName: '',
       saving: false,
       toastVisible: false,
       toastMessage: '',
@@ -192,12 +194,29 @@ export default {
       return map[this.toastType] || '💡';
     }
   },
-  mounted() { this.loadUserInfo(); },
+  mounted() {
+    this.fetchUserInfo();
+    this.loadUserInfo(); },
   methods: {
     goProfile() { this.$router.push(`/profile/${this.formData.id}`); },
     showToast(msg, type = 'info') {
       this.toastMessage = msg; this.toastType = type; this.toastVisible = true;
       setTimeout(() => this.toastVisible = false, 2500);
+    },
+
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        if (res.data.code === 200 || res.data.success) {
+          const userInfo = res.data.data;
+
+          this.currentUserAvatar = userInfo.avatar;
+          this.currentUserName = userInfo.username;
+
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
     },
     loadUserInfo() {
       // 模拟数据

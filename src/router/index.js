@@ -9,7 +9,7 @@ import UserProfile from '@/views/UserProfile.vue'
 import ProfileEdit from '@/views/ProfileEdit.vue'
 import ChallengeList from '@/views/ChallengeList.vue'
 import ActivityList from '@/views/ActivityList.vue'
-
+import ChallengeDetail from '@/views/ChallengeDetail.vue'
 const routes = [
     {
         path: '/',
@@ -56,6 +56,11 @@ const routes = [
         path: '/activity',
         name: 'ActivityList',
         component: ActivityList,
+    },
+    {
+        path: '/challenge/:id',
+        name: 'ChallengeDetail',
+        component: ChallengeDetail,
     },
 ]
 

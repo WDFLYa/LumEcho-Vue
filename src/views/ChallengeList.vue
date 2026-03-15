@@ -16,7 +16,7 @@
         <p>用镜头记录世界，赢取荣耀勋章</p>
       </div>
 
-      <!-- 筛选工具栏 -->
+      <!-- 筛选工具栏 (已移除排序部分) -->
       <div class="filter-tools">
         <div class="tabs">
           <button
@@ -28,14 +28,7 @@
             {{ tab.label }}
           </button>
         </div>
-        <div class="sorter">
-          <span>排序：</span>
-          <select v-model="sortBy" @change="fetchChallenges">
-            <option value="latest">最新发布</option>
-            <option value="hot">最热参与</option>
-            <option value="ending">即将结束</option>
-          </select>
-        </div>
+        <!-- sorter 部分已完全删除 -->
       </div>
 
       <!-- 挑战卡片网格 -->
@@ -59,7 +52,6 @@
           <!-- 卡片主体：封面与标题 -->
           <div class="card-body">
             <div class="cover-box">
-              <!-- 这里假设有一个 cover 字段，如果没有可以用默认图 -->
               <img :src="ch.cover || defaultCover" class="c-cover" alt="cover" />
               <div class="overlay-icon">🏆</div>
             </div>
@@ -67,23 +59,31 @@
             <p class="c-desc">{{ truncate(ch.description, 40) }}</p>
           </div>
 
-          <!-- 卡片底部：数据与进度 -->
+          <!-- ✨ 卡片底部：优化后的进度与友好提示 -->
           <div class="card-footer">
-            <div class="progress-section">
-              <div class="p-info">
-                <span class="p-count">{{ ch.participantCount }} / {{ ch.maxParticipants }}</span>
-                <span class="p-label">人已加入</span>
+            <!-- 第一行：左侧徽章 + 中间进度条 -->
+            <div class="footer-top-row">
+              <div class="count-badge">
+                <span class="badge-icon">{{ getBadgeIcon(ch) }}</span>
+                <span class="badge-text">
+                  {{ ch.participantCount }}
+                  <span class="separator">/</span>
+                  {{ ch.isUnlimited ? '∞' : (ch.maxParticipants || 0) }}
+                </span>
               </div>
-              <div class="progress-bar-bg">
+
+              <div class="progress-track">
                 <div
-                    class="progress-bar-fill"
-                    :style="{ width: getProgressPercent(ch) + '%', backgroundColor: getProgressColor(ch) }"
+                    class="progress-fill"
+                    :class="getProgressClass(ch)"
+                    :style="{ width: getProgressWidth(ch) + '%' }"
                 ></div>
               </div>
             </div>
 
-            <div class="action-hint">
-              <span class="arrow-icon">➜</span>
+            <!-- 第二行：友好提示语文案（独占一行） -->
+            <div class="friendly-hint" :class="getHintColorClass(ch)">
+              {{ getFriendlyText(ch) }}
             </div>
           </div>
         </div>
@@ -99,7 +99,9 @@
 </template>
 
 <script>
-import ChallengeNavBar from "@/components/NavBar/ChallengeNavBar.vue"; // 假设上面那个组件保存为此文件
+import ChallengeNavBar from "@/components/NavBar/ChallengeNavBar.vue";
+import { getChallengeList } from "@/api/challenge";
+import { getCurrentUserInfo } from "@/api/auth";
 
 export default {
   name: "ChallengeList",
@@ -108,9 +110,9 @@ export default {
     return {
       currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: '摄影师',
-      challengeList: [], // 存储 Challenge 对象
+      challengeList: [],
       currentTab: 'all',
-      sortBy: 'latest',
+      // sortBy: 'latest',  <-- 已删除
       searchQuery: '',
       defaultCover: 'http://localhost:9000/lumecho/cover.png',
       tabs: [
@@ -121,114 +123,144 @@ export default {
       ]
     };
   },
+
   mounted() {
     this.fetchChallenges();
+    this.fetchUserInfo();
   },
-  methods: {
-    // 模拟获取数据 (实际请替换为你的 API 调用)
-    async fetchChallenges() {
-      // TODO: 调用后端 API，传入 currentTab, sortBy, searchQuery
-      // const res = await api.getChallenges({ status: this.currentTab, sort: this.sortBy });
-      // this.challengeList = res.data;
 
-      // ---  mock 数据演示 ---
-      this.challengeList = [
-        {
-          id: 1,
-          title: "春日樱花季",
-          description: "捕捉春天的第一抹粉色，分享你身边的樱花美景。",
-          startTime: new Date(Date.now() - 86400000 * 5),
-          endTime: new Date(Date.now() + 86400000 * 2), // 2天后结束
-          reviewEndTime: new Date(Date.now() + 86400000 * 10),
-          status: 1, // 1: 进行中
-          maxParticipants: 500,
-          participantCount: 420,
-          cover: null
-        },
-        {
-          id: 2,
-          title: "城市夜景光影",
-          description: "探索城市的夜晚，用光影讲述故事。",
-          startTime: new Date(Date.now() - 86400000 * 10),
-          endTime: new Date(Date.now() + 86400000 * 15),
-          reviewEndTime: new Date(Date.now() + 86400000 * 20),
-          status: 1,
-          maxParticipants: 1000,
-          participantCount: 150,
-          cover: null
-        },
-        {
-          id: 3,
-          title: "复古胶片风",
-          description: "重现胶片质感，寻找怀旧的色彩。",
-          startTime: new Date(Date.now() - 86400000 * 20),
-          endTime: new Date(Date.now() - 86400000 * 1), // 已结束
-          reviewEndTime: new Date(Date.now() + 86400000 * 5),
-          status: 2, // 2: 评审中
-          maxParticipants: 200,
-          participantCount: 200,
-          cover: null
-        }
-      ];
-      // -------------------
+  watch: {
+    currentTab() {
+      this.fetchChallenges();
+    }
+  },
+
+  methods: {
+    async fetchChallenges() {
+      try {
+        const statusMap = {
+          all: null,
+          ongoing: 1,
+          review: 2,
+          ended: 3
+        };
+
+        const res = await getChallengeList({
+          status: statusMap[this.currentTab],
+          keyword: this.searchQuery,
+          pageNum: 1,
+          pageSize: 20
+          // sortBy: this.sortBy <-- 已删除
+        });
+
+        this.challengeList = res.data?.data?.data || res.data?.data || [];
+
+      } catch (error) {
+        console.error("获取挑战列表失败", error);
+      }
     },
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败", e);
+      }
+    },
+
     handleSearch(query) {
       this.searchQuery = query;
       this.fetchChallenges();
     },
-    goCreate() { this.$router.push('/challenge/create'); },
-    goProfile() { this.$router.push('/profile'); },
-    goDetail(id) { this.$router.push(`/challenge/${id}`); },
 
-    // 工具函数
+    goCreate() {
+      this.$router.push('/challenge/create');
+    },
+
+    goProfile() {
+      this.$router.push('/profile');
+    },
+
+    goDetail(id) {
+      this.$router.push(`/challenge/${id}`);
+    },
+
     truncate(str, len) {
       if (!str) return '';
       return str.length > len ? str.substring(0, len) + '...' : str;
     },
+
+    // --- ✨ 新增辅助方法 ---
+    getBadgeIcon(ch) {
+      if (ch.isFull) return '✅';
+      if (ch.isUnlimited) return '🌟';
+      if (ch.isUrgent) return '🔥';
+      return '👥';
+    },
+
+    getFriendlyText(ch) {
+      if (ch.friendlyHint) return ch.friendlyHint;
+      if (ch.isUnlimited) return '无人数限制';
+      if (ch.isFull) return '已满员';
+      const remaining = (ch.maxParticipants || 0) - (ch.participantCount || 0);
+      return `还差 ${remaining} 人`;
+    },
+
+    getHintColorClass(ch) {
+      if (ch.isFull) return 'hint-success';
+      const text = this.getFriendlyText(ch);
+      if (text.includes('仅剩') || text.includes('手慢无')) return 'hint-danger';
+      if (text.includes('热度') || ch.isUrgent) return 'hint-warning';
+      return 'hint-normal';
+    },
+
+    getProgressWidth(ch) {
+      if (ch.isUnlimited) return 100;
+      if (ch.isFull) return 100;
+      return this.getProgressPercent(ch);
+    },
+
+    getProgressClass(ch) {
+      if (ch.isFull) return 'fill-success';
+      if (ch.isUnlimited) return 'fill-unlimited';
+      if (ch.isUrgent) return 'fill-urgent';
+      return '';
+    },
+
+    // --- 原有方法 ---
     getStatusClass(ch) {
-      if (ch.status === 2) return 'status-review';
-      if (ch.status === 3) return 'status-ended';
-      // 检查是否即将结束
+      if (ch.statusCode === 2) return 'status-review';
+      if (ch.statusCode === 3) return 'status-ended';
       const now = new Date();
       const end = new Date(ch.endTime);
       const diff = end - now;
-      if (diff > 0 && diff < 86400000 * 2) return 'status-urgent'; // 2天内
+      if (diff > 0 && diff < 86400000 * 2) return 'status-urgent';
       return 'status-active';
     },
+
     getStatusText(ch) {
-      if (ch.status === 2) return '评审中';
-      if (ch.status === 3) return '已结束';
-      const now = new Date();
-      const end = new Date(ch.endTime);
-      if (end < now) return '已结束';
-      const diff = end - now;
-      if (diff < 86400000 * 2) return '即将截止';
-      return '报名中';
+      return ch.statusText || '未知状态';
     },
+
     isEndingSoon(ch) {
-      if (ch.status !== 1) return false;
+      if (ch.statusCode !== 1) return false;
       const now = new Date();
       const end = new Date(ch.endTime);
-      return (end - now) < 86400000 * 3; // 3天内
+      return (end - now) < 86400000 * 3;
     },
+
     getRemainingTime(ch) {
-      const now = new Date();
-      const end = new Date(ch.endTime);
-      const diff = end - now;
-      if (diff <= 0) return '已结束';
-      const days = Math.floor(diff / 86400000);
-      const hours = Math.floor((diff % 86400000) / 3600000);
-      return `${days}天${hours}时`;
+      return ch.remainingTimeDesc || '';
     },
+
     getProgressPercent(ch) {
-      if (!ch.maxParticipants) return 0;
+      if (!ch.maxParticipants || ch.maxParticipants <= 0) return 0;
       return Math.min(100, (ch.participantCount / ch.maxParticipants) * 100);
-    },
-    getProgressColor(ch) {
-      const percent = this.getProgressPercent(ch);
-      if (percent > 80) return '#D32F2F'; // 红色：快满了
-      if (percent > 50) return '#FBC02D'; // 黄色：过半
-      return '#7B1FA2'; // 紫色：正常
     }
   }
 };
@@ -269,7 +301,7 @@ export default {
 /* --- 筛选工具 --- */
 .filter-tools {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* 因为移除了 sorter，现在 tabs 会自动占满或靠左，如需居中可改为 justify-content: center; */
   align-items: center;
   margin-bottom: 30px;
   background: #FFF;
@@ -293,22 +325,7 @@ export default {
   color: #FFF;
   box-shadow: 0 4px 10px rgba(142, 36, 170, 0.3);
 }
-.sorter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #6A1B9A;
-  font-weight: 600;
-}
-.sorter select {
-  padding: 6px 12px;
-  border-radius: 12px;
-  border: 1px solid #E1BEE7;
-  background: #FFF;
-  color: #4A148C;
-  outline: none;
-  cursor: pointer;
-}
+/* .sorter 相关样式已彻底删除 */
 
 /* --- 卡片网格 --- */
 .challenge-grid {
@@ -417,50 +434,87 @@ export default {
   opacity: 0.8;
 }
 
-/* 卡片底部：进度条 */
+/* ✨ 卡片底部：全新两行布局 */
 .card-footer {
   padding: 15px 20px;
   background: #FFF;
   border-top: 1px solid #F3E5F5;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
 }
-.progress-section {
-  flex: 1;
-  margin-right: 15px;
-}
-.p-info {
+
+.footer-top-row {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
+  align-items: center;
+  gap: 12px;
+}
+
+.count-badge {
+  display: flex;
+  align-items: center;
+  background: #F8F9FA;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: #6A1B9A;
-  margin-bottom: 6px;
+  color: #4A148C;
+  white-space: nowrap;
+  border: 1px solid #E1BEE7;
+  flex-shrink: 0;
 }
-.progress-bar-bg {
-  width: 100%;
-  height: 8px;
+
+.badge-icon {
+  margin-right: 6px;
+  font-style: normal;
+}
+
+.separator {
+  margin: 0 4px;
+  color: #9E9E9E;
+  font-weight: 400;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
   background: #F3E5F5;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
+  min-width: 60px;
 }
-.progress-bar-fill {
+
+.progress-fill {
   height: 100%;
-  border-radius: 4px;
-  transition: width 1s ease;
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, #AB47BC, #8E24AA);
 }
-.action-hint {
-  color: #AB47BC;
-  font-size: 18px;
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: all 0.3s ease;
+
+.progress-fill.fill-success {
+  background: linear-gradient(90deg, #66BB6A, #43A047);
 }
-.c-card:hover .action-hint {
-  opacity: 1;
-  transform: translateX(0);
+.progress-fill.fill-urgent {
+  background: linear-gradient(90deg, #EF5350, #E53935);
 }
+.progress-fill.fill-unlimited {
+  background: linear-gradient(90deg, #BA68C8, #CE93D8);
+  opacity: 0.8;
+}
+
+.friendly-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7B1FA2;
+  line-height: 1.4;
+  text-align: left;
+  width: 100%;
+}
+
+.hint-normal { color: #7B1FA2; }
+.hint-success { color: #2E7D32; }
+.hint-warning { color: #F9A825; }
+.hint-danger { color: #C62828; font-weight: 800; }
 
 .empty-state {
   text-align: center;
@@ -478,8 +532,12 @@ export default {
 @media (max-width: 768px) {
   .challenge-grid { grid-template-columns: 1fr; }
   .page-header h2 { font-size: 2rem; }
-  .filter-tools { flex-direction: column; gap: 15px; align-items: stretch; }
+  .filter-tools {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+  }
   .tabs { justify-content: center; }
-  .sorter { justify-content: center; }
+  /* .sorter 相关媒体查询已彻底删除 */
 }
 </style>
