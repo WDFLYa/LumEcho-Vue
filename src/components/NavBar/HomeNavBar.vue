@@ -9,7 +9,7 @@
 
     <!-- 搜索框 (图标常驻) -->
     <div class="search-container">
-      <!-- 图标始终显示，不随聚焦消失 -->
+      <!-- 图标始终显示 -->
       <span class="search-icon">🔍</span>
       <input
           type="text"
@@ -20,14 +20,14 @@
       />
     </div>
 
-    <!-- 右侧用户区 (重构胶囊) -->
+    <!-- 右侧用户区 -->
     <div class="nav-right">
       <button class="upload-btn" @click="$emit('upload')">
         <span class="btn-icon">✨</span>
         <span>发布作品</span>
       </button>
 
-      <!-- 全新设计的用户胶囊 -->
+      <!-- 用户胶囊 -->
       <div class="user-capsule" @click="$emit('profile')">
         <div class="capsule-content">
           <span class="user-name">{{ userName }}</span>
@@ -43,11 +43,23 @@
 <script>
 export default {
   name: "HomeNavBar",
-  props: { userAvatar: String, userName: String },
-  data() { return { searchQuery: '' }; },
+  props: {
+    userAvatar: String,
+    userName: String
+  },
+  data() {
+    return {
+      searchQuery: ''
+    };
+  },
   methods: {
-    goHome() { this.$router.push("/home"); },
-    handleSearch() { this.$emit('search', this.searchQuery); }
+    goHome() {
+      this.$router.push("/home");
+    },
+    // ✨ 关键：按下回车时，将当前的 searchQuery 发送给父组件
+    handleSearch() {
+      this.$emit('search', this.searchQuery);
+    }
   }
 };
 </script>
@@ -81,7 +93,7 @@ export default {
 .lumecho-logo-small:hover { transform: scale(1.05) rotate(-2deg); }
 .lumecho-logo-small span { color: #FFCA28; -webkit-text-fill-color: #FFCA28; }
 
-/* 搜索框 (图标常驻) */
+/* 搜索框 */
 .search-container {
   flex: 1;
   max-width: 450px;
@@ -94,17 +106,16 @@ export default {
   position: absolute;
   left: 16px;
   font-size: 18px;
-  color: #B0BEC5; /* 柔和的灰色，始终可见 */
+  color: #B0BEC5;
   pointer-events: none;
   z-index: 2;
   transition: color 0.3s;
 }
-/* 聚焦时图标颜色稍微深一点，但不消失 */
 .search-input:focus + .search-icon { color: #81D4FA; }
 
 .search-input {
   width: 100%;
-  padding: 12px 20px 12px 45px; /* 左边留出图标位置 */
+  padding: 12px 20px 12px 45px;
   border-radius: 50px;
   border: 2px solid #F0F4F8;
   background: #FAFAFA;
@@ -151,12 +162,12 @@ export default {
 }
 .btn-icon { font-size: 16px; }
 
-/* ✅ 重构：用户胶囊 (User Capsule) */
+/* 用户胶囊 */
 .user-capsule {
   background: #FFFFFF;
   border: 2px solid #F0F4F8;
   border-radius: 50px;
-  padding: 4px 4px 4px 12px; /* 左边留白，右边紧凑 */
+  padding: 4px 4px 4px 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
@@ -168,7 +179,7 @@ export default {
   border-color: #81D4FA;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(129, 212, 250, 0.25);
-  background: #E1F5FE; /* 悬停时背景微蓝 */
+  background: #E1F5FE;
 }
 
 .capsule-content {
@@ -205,7 +216,6 @@ export default {
   border: 2px solid #FFFFFF;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
 
 @media (max-width: 768px) {
   .navbar { padding: 12px 20px; }

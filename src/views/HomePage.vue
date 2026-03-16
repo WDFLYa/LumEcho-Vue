@@ -1,5 +1,6 @@
 <template>
   <div class="home-container">
+    <!-- 导航栏 -->
     <HomeNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
@@ -9,13 +10,11 @@
     />
 
     <main class="content-wrapper">
-      <!-- 筛选栏 (已修改布局) -->
+      <!-- 筛选栏 -->
       <div class="filter-bar">
-
         <!-- 左侧：Tab 切换 + 特别活动入口 -->
         <div class="filter-left-group">
-
-          <!-- 1. 基础 Tab (最新/热门) -->
+          <!-- 1. 基础 Tab -->
           <div class="tabs">
             <button :class="['tab-item', { active: activeTab === 'latest' }]" @click="switchTab('latest')">
               🕒 最新发现
@@ -25,23 +24,28 @@
             </button>
           </div>
 
-          <!-- 2. ✨ 新增：特别行动区 (紧挨着 Tab) -->
+          <!-- 2. 特别行动区 -->
           <div class="special-actions">
             <button class="action-pill activity-btn" @click="goActivity" title="参加摄影活动">
               <span class="pill-icon">📸</span>
               <span class="pill-text">摄影活动</span>
             </button>
-
             <button class="action-pill challenge-btn" @click="goChallenge" title="加入挑战赛">
               <span class="pill-icon">🏆</span>
               <span class="pill-text">挑战赛</span>
             </button>
           </div>
-
         </div>
 
-        <!-- 右侧：分类标签 (自动换行) -->
+        <!-- 右侧：分类标签 -->
         <div class="categories">
+          <span
+              class="cat-tag"
+              :class="{ active: selectedCategoryId === null }"
+              @click="selectCategory(null)"
+          >
+            <span class="cat-icon">🌐</span> 全部
+          </span>
           <span
               class="cat-tag"
               v-for="cat in categoryList"
@@ -49,13 +53,25 @@
               :class="{ active: selectedCategoryId === cat.id }"
               @click="selectCategory(cat)"
           >
-            <span class="cat-icon">{{ categoryIcons[cat.id] || categoryIcons.default }}</span>
+            <!-- ✅ 修改：使用 cat.name 匹配图标 -->
+            <span class="cat-icon">{{ categoryIconMap[cat.name] || defaultIcon }}</span>
             {{ cat.name }}
           </span>
         </div>
       </div>
 
-      <!-- 帖子列表 (保持不变) -->
+      <!-- ✨ 搜索状态提示条 (当有搜索词时显示) -->
+      <div v-if="searchQuery" class="search-status-bar">
+        <div class="search-info">
+          <span class="search-icon-small">🔍</span>
+          <span>正在搜索：<strong>"{{ searchQuery }}"</strong></span>
+        </div>
+        <button class="clear-search-btn" @click="clearSearch" title="清除搜索">
+          ✕ 清除
+        </button>
+      </div>
+
+      <!-- 帖子列表 -->
       <div class="posts-grid">
         <div
             class="post-card"
@@ -93,7 +109,6 @@
                   <span class="like-icon">{{ post.isLiked ? '❤️' : '🤍' }}</span>
                   <span class="like-count">{{ post.likes || 0 }}</span>
                 </span>
-
                 <span class="stat-item" title="评论">
                   💬 {{ post.comments || 0 }}
                 </span>
@@ -101,8 +116,9 @@
             </div>
 
             <div class="card-footer">
+              <!-- ✅ 修改：使用 post.category (名称) 匹配图标 -->
               <span class="category-badge">
-                {{ categoryIcons[post.categoryId] || '🏷️' }} {{ post.category || '综合' }}
+                {{ categoryIconMap[post.category] || '🏷️' }} {{ post.category || '综合' }}
               </span>
               <span class="time-ago">{{ post.timeAgo || '刚刚' }}</span>
             </div>
@@ -110,21 +126,23 @@
         </div>
       </div>
 
-      <!-- 加载更多 (保持不变) -->
+      <!-- 加载更多 / 无数据提示 -->
       <div class="load-more-container" v-if="hasMore">
-        <button class="load-more-btn" @click="loadMore">
-          ✨ 加载更多灵感
+        <button class="load-more-btn" @click="loadMore" :disabled="loading">
+          {{ loading ? '加载中...' : '✨ 加载更多灵感' }}
         </button>
       </div>
-      <div class="no-more" v-else>
+      <div class="no-more" v-else-if="posts.length > 0">
         <p>已经到底啦，喝杯奶茶休息一下吧 🧋</p>
+      </div>
+      <div class="no-more" v-else-if="!loading">
+        <p>暂无内容，快去发布第一篇吧！📝</p>
       </div>
     </main>
   </div>
 </template>
 
 <script>
-// ... (Script 部分保持不变，只需添加两个跳转方法) ...
 import { getHomePosts, getCurrentUserInfo } from "@/api/auth";
 import HomeNavBar from "@/components/NavBar/HomeNavBar.vue";
 import { getAllCategories } from '@/api/category';
@@ -136,18 +154,35 @@ export default {
   components: { HomeNavBar },
   data() {
     return {
-      // ... (原有数据不变)
       currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
+
+      // ✨ 核心状态：搜索关键词
       searchQuery: '',
-      activeTab: 'latest',
+
+      activeTab: 'latest',          // 'latest' | 'hot'
+      selectedCategoryId: null,     // null 表示全部
+
       categoryList: [],
-      selectedCategoryId: null,
-      categoryIcons: { 1: '🏠', 2: '💻', 3: '🍜', 4: '✈️', 5: '🛌', default: '📁' },
+
+      // ✅ 修改：使用名称映射图标，不再依赖 ID
+      categoryIconMap: {
+        '日常': '🏠',
+        '技术': '💻',
+        '美食': '🍜',
+        '旅行': '✈️',
+        '摸鱼': '🛌',
+        '摄影': '📸',
+        '综合': '🏷️'
+      },
+      defaultIcon: '📁', // 默认图标
+
       posts: [],
       hasMore: true,
+      loading: false,
       offset: 0,
       limit: 8,
+
       defaultCover: 'http://localhost:9000/lumecho/cover.png',
       defaultAvatar: 'http://localhost:9000/lumecho/avatar.png'
     };
@@ -175,17 +210,52 @@ export default {
       sessionStorage.setItem("lastPostId", id);
       this.$router.push(`/post/${id}`);
     },
+    goActivity() { this.$router.push('/activity'); },
+    goChallenge() { this.$router.push('/challenge'); },
 
-    // 🚀 新增：跳转到活动页
-    goActivity() {
-      // 请确保你在 router/index.js 中配置了 /activity 路由
-      this.$router.push('/activity');
+    switchTab(tab) {
+      if (this.activeTab === tab) return;
+      this.activeTab = tab;
+      this.resetList();
     },
 
-    // 🏆 新增：跳转到挑战赛页
-    goChallenge() {
-      // 请确保你在 router/index.js 中配置了 /challenge 路由
-      this.$router.push('/challenge');
+    selectCategory(cat) {
+      const newId = cat ? cat.id : null;
+      if (this.selectedCategoryId === newId) return;
+      this.selectedCategoryId = newId;
+      this.resetList();
+    },
+
+    // ✨ 处理搜索事件 (支持回车触发)
+    handleSearch(query) {
+      this.searchQuery = query || '';
+      this.resetList();
+
+      if (this.searchQuery) {
+        ElMessage.success(`正在搜索 "${this.searchQuery}"...`);
+      } else {
+        ElMessage.info('已显示全部内容');
+      }
+    },
+
+    // ✨ 清除搜索
+    clearSearch() {
+      this.searchQuery = '';
+      this.resetList();
+      ElMessage.info('已清除搜索条件');
+    },
+
+    resetList() {
+      this.offset = 0;
+      this.posts = [];
+      this.hasMore = true;
+      this.fetchPosts();
+    },
+
+    loadMore() {
+      if (!this.loading && this.hasMore) {
+        this.fetchPosts();
+      }
     },
 
     async toggleLikeInList(post) {
@@ -197,8 +267,10 @@ export default {
       }
       const originalLiked = post.isLiked;
       const originalCount = post.likes;
+
       post.isLiked = !originalLiked;
       post.likes = originalLiked ? originalCount - 1 : originalCount + 1;
+
       try {
         await toggleLike(post.id);
       } catch (error) {
@@ -212,29 +284,19 @@ export default {
         }
       }
     },
-    switchTab(tab) {
-      this.activeTab = tab;
-      this.offset = 0;
-      this.posts = [];
-      this.hasMore = true;
-      this.fetchPosts();
-    },
-    handleSearch(query) { this.searchQuery = query; },
-    loadMore() { if (this.hasMore) this.fetchPosts(); },
-    selectCategory(cat) {
-      this.selectedCategoryId = cat.id;
-      this.offset = 0;
-      this.posts = [];
-      this.hasMore = true;
-      this.fetchPosts();
-    },
+
     async fetchCategories() {
       try {
         const res = await getAllCategories();
         const data = res.data.code === 200 ? res.data.data : res.data;
-        if (data) this.categoryList = data;
-      } catch (e) { console.error(e); }
+        if (Array.isArray(data)) {
+          this.categoryList = data;
+        }
+      } catch (e) {
+        console.error("获取分类失败", e);
+      }
     },
+
     async fetchUserInfo() {
       try {
         const res = await getCurrentUserInfo();
@@ -243,14 +305,35 @@ export default {
           this.currentUserAvatar = data.avatar || this.currentUserAvatar;
           this.currentUserName = data.username || this.currentUserName;
         }
-      } catch (e) { /* 保持默认 */ }
+      } catch (e) {
+        // 未登录或错误时保持默认
+      }
     },
+
+    // ✨ 核心请求逻辑
     async fetchPosts() {
+      if (this.loading) return;
+      this.loading = true;
+
       try {
         const sortParam = this.activeTab === 'latest' ? 'time' : 'hot';
-        const res = await getHomePosts({ sort: sortParam, offset: this.offset, limit: this.limit });
+
+        const params = {
+          sort: sortParam,
+          offset: this.offset,
+          limit: this.limit,
+          keyword: this.searchQuery ? this.searchQuery : undefined,
+        };
+
+        if (this.selectedCategoryId !== null) {
+          params.categoryId = this.selectedCategoryId;
+        }
+
+        const res = await getHomePosts(params);
         const responseData = res.data.code === 200 ? res.data.data : res.data;
         let newPosts = responseData.data || [];
+
+        // 数据格式化
         newPosts = newPosts.map(item => ({
           ...item,
           avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
@@ -264,6 +347,8 @@ export default {
           timeAgo: item.timeAgo || '刚刚',
           isLiked: false
         }));
+
+        // 批量获取点赞状态
         const token = localStorage.getItem('user_token');
         if (token && newPosts.length > 0) {
           try {
@@ -272,19 +357,36 @@ export default {
             let likeMap = {};
             const sData = statusRes.data.code === 200 ? statusRes.data.data : statusRes.data;
             if (sData) likeMap = sData;
+
             newPosts.forEach(post => {
               const idStr = String(post.id);
-              if (likeMap[idStr] === true) post.isLiked = true;
+              if (likeMap[idStr] === true) {
+                post.isLiked = true;
+              }
             });
-          } catch (likeErr) { console.warn("获取点赞状态失败", likeErr); }
+          } catch (likeErr) {
+            console.warn("获取点赞状态失败", likeErr);
+          }
         }
-        this.hasMore = responseData.hasMore || false;
-        this.posts = [...this.posts, ...newPosts];
+
+        this.hasMore = responseData.hasMore || (newPosts.length >= this.limit);
+
+        if (this.offset === 0) {
+          this.posts = newPosts;
+        } else {
+          this.posts = [...this.posts, ...newPosts];
+        }
+
         this.offset += newPosts.length;
+
       } catch (e) {
         console.error("加载帖子失败", e);
         this.hasMore = false;
-        this.$message.error('加载内容失败，请刷新重试');
+        if (this.offset === 0) {
+          ElMessage.error('加载内容失败，请检查网络');
+        }
+      } finally {
+        this.loading = false;
       }
     }
   }
@@ -308,21 +410,20 @@ export default {
   padding: 30px 20px;
 }
 
-/* --- 筛选栏 (核心修改) --- */
+/* --- 筛选栏 --- */
 .filter-bar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start; /* 改为顶部对齐，防止高度不一致 */
+  align-items: flex-start;
   margin-bottom: 30px;
   flex-wrap: wrap;
   gap: 20px;
 }
 
-/* 左侧组合：Tabs + 特别活动 */
 .filter-left-group {
   display: flex;
   align-items: center;
-  gap: 15px; /* Tab 和活动按钮之间的间距 */
+  gap: 15px;
   flex-wrap: wrap;
 }
 
@@ -361,12 +462,7 @@ export default {
   background: #E1F5FE;
 }
 
-/* ====================
-   🌟 特别行动区 (活动 & 挑战)
-   ==================== */
-/* ====================
-   💎 终极轻奢版：欲望行动区
-   ==================== */
+/* 特别行动区 */
 .special-actions {
   display: flex;
   align-items: center;
@@ -378,116 +474,52 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-
-  /* 尺寸微调，更显精致 */
   padding: 10px 24px;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.5px; /* 字间距拉开一点，显高级 */
-
+  letter-spacing: 0.5px;
   border: none;
   border-radius: 50px;
   cursor: pointer;
   color: #fff;
-
-  /* 基础状态：细腻的阴影 */
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* 丝滑过渡 */
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   z-index: 1;
   overflow: hidden;
 }
 
-/* --- 📸 摄影活动 (极光青绿 - 替换掉难看的金色) --- */
-/* 配色思路：像蒂芙尼蓝加深，或者翡翠的质感，清新且昂贵 */
 .activity-btn {
   background: linear-gradient(135deg, #4DD0E1 0%, #0097A7 100%);
-  /* 添加一道微妙的高光层 */
-  background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%),
-      linear-gradient(135deg, #4DD0E1 0%, #0097A7 100%);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%), linear-gradient(135deg, #4DD0E1 0%, #0097A7 100%);
 }
-
-.activity-btn .pill-icon {
-  font-size: 1.2em;
-  transition: transform 0.4s ease;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
 .activity-btn:hover {
-  transform: translateY(-3px); /* 轻微上浮，稳重 */
-  /* 悬停时：背景变亮，阴影变成青色的光晕 */
-  background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%),
-      linear-gradient(135deg, #80DEEA 0%, #26C6DA 100%);
-  box-shadow: 0 10px 25px rgba(0, 151, 167, 0.4); /* 青色柔光 */
+  transform: translateY(-3px);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%), linear-gradient(135deg, #80DEEA 0%, #26C6DA 100%);
+  box-shadow: 0 10px 25px rgba(0, 151, 167, 0.4);
 }
+.activity-btn:hover .pill-icon { transform: scale(1.1) rotate(-5deg); }
 
-.activity-btn:hover .pill-icon {
-  transform: scale(1.1) rotate(-5deg);
-}
-
-/* --- 🏆 挑战赛 (尊贵紫晶 - 保留并优化) --- */
-/* 配色思路：深邃的紫水晶，神秘且充满诱惑 */
 .challenge-btn {
   background: linear-gradient(135deg, #BA68C8 0%, #7B1FA2 100%);
-  background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%),
-      linear-gradient(135deg, #BA68C8 0%, #7B1FA2 100%);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, transparent 100%), linear-gradient(135deg, #BA68C8 0%, #7B1FA2 100%);
 }
-
-.challenge-btn .pill-icon {
-  font-size: 1.2em;
-  transition: transform 0.4s ease;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
 .challenge-btn:hover {
   transform: translateY(-3px);
-  /* 悬停时：背景变亮，阴影变成紫色的光晕 */
-  background-image:
-      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%),
-      linear-gradient(135deg, #CE93D8 0%, #AB47BC 100%);
-  box-shadow: 0 10px 25px rgba(123, 31, 162, 0.4); /* 紫色柔光 */
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, transparent 100%), linear-gradient(135deg, #CE93D8 0%, #AB47BC 100%);
+  box-shadow: 0 10px 25px rgba(123, 31, 162, 0.4);
 }
+.challenge-btn:hover .pill-icon { transform: scale(1.1) rotate(5deg); }
 
-.challenge-btn:hover .pill-icon {
-  transform: scale(1.1) rotate(5deg);
-}
+.pill-icon { font-size: 1.2em; transition: transform 0.4s ease; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+.pill-text { white-space: nowrap; }
 
-/* 移动端适配：保持简洁有力 */
-@media (max-width: 900px) {
-  .special-actions {
-    gap: 10px;
-  }
-  .action-pill {
-    padding: 10px;
-    width: 44px;
-    height: 44px;
-    justify-content: center;
-    border-radius: 50%;
-  }
-  .pill-text { display: none; }
-  .activity-btn .pill-icon,
-  .challenge-btn .pill-icon {
-    font-size: 1.3em;
-  }
-  /* 移动端减少动画，保证流畅 */
-  .action-pill:hover {
-    transform: none;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  }
-  .action-pill:hover .pill-icon {
-    transform: none;
-  }
-}
-
-/* 分类标签 (右侧) */
+/* 分类标签 */
 .categories {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-end; /* 靠右对齐 */
-  flex: 1; /* 占据剩余空间 */
+  justify-content: flex-end;
+  flex: 1;
   min-width: 200px;
 }
 
@@ -504,6 +536,7 @@ export default {
   align-items: center;
   gap: 6px;
   font-weight: 600;
+  user-select: none;
 }
 
 .cat-tag:hover {
@@ -518,9 +551,58 @@ export default {
   color: #0277BD;
   border-color: #81D4FA;
   font-weight: 800;
+  transform: scale(1.05);
 }
 
-/* --- 帖子卡片 (保持不变) --- */
+/* ✨ 搜索状态条样式 */
+.search-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #E3F2FD;
+  color: #0277BD;
+  padding: 12px 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #B3E5FC;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-icon-small {
+  font-size: 16px;
+}
+
+.clear-search-btn {
+  background: transparent;
+  border: 1px solid #90CAF9;
+  color: #0277BD;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.clear-search-btn:hover {
+  background: #BBDEFB;
+  border-color: #64B5F6;
+}
+
+/* 帖子卡片 */
 .posts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -557,16 +639,9 @@ export default {
   object-fit: cover;
   transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.post-card:hover .card-cover {
-  transform: scale(1.1);
-}
-.card-info {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
+.post-card:hover .card-cover { transform: scale(1.1); }
+
+.card-info { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .post-title {
   font-size: 16px;
   font-weight: 800;
@@ -578,104 +653,25 @@ export default {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.post-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 4px;
-}
-.author-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.mini-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #FFF;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-.author-name {
-  font-size: 13px;
-  color: #78909C;
-  font-weight: 600;
-}
-.stats {
-  display: flex;
-  gap: 10px;
-  color: #90A4AE;
-  font-size: 12px;
-  font-weight: 700;
-}
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #F5F7FA;
-  padding: 4px 8px;
-  border-radius: 12px;
-  transition: all 0.3s;
-  cursor: default;
-}
-.like-stat {
-  cursor: pointer;
-  user-select: none;
-}
-.like-stat:not(.is-liked):hover {
-  background: #E1F5FE;
-  color: #0277BD;
-}
-.like-stat.is-liked {
-  background: #FFEBEE;
-  color: #D32F2F;
-  border: 1px solid #FFCDD2;
-  animation: popHeart 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.like-stat.is-liked:hover {
-  background: #FFCDD2;
-  color: #B71C1C;
-}
-@keyframes popHeart {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-.post-card:hover .stat-item:not(.like-stat) {
-  background: #E1F5FE;
-  color: #0277BD;
-}
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 2px dashed #F0F4F8;
-}
-.category-badge {
-  font-size: 11px;
-  font-weight: 800;
-  color: #0288D1;
-  background: #E1F5FE;
-  padding: 4px 10px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.time-ago {
-  font-size: 12px;
-  color: #B0BEC5;
-  font-weight: 600;
-}
+.post-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.author-info { display: flex; align-items: center; gap: 8px; }
+.mini-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 2px solid #FFF; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.author-name { font-size: 13px; color: #78909C; font-weight: 600; }
+.stats { display: flex; gap: 10px; color: #90A4AE; font-size: 12px; font-weight: 700; }
+.stat-item { display: flex; align-items: center; gap: 4px; background: #F5F7FA; padding: 4px 8px; border-radius: 12px; transition: all 0.3s; cursor: default; }
+.like-stat { cursor: pointer; user-select: none; }
+.like-stat:not(.is-liked):hover { background: #E1F5FE; color: #0277BD; }
+.like-stat.is-liked { background: #FFEBEE; color: #D32F2F; border: 1px solid #FFCDD2; animation: popHeart 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.like-stat.is-liked:hover { background: #FFCDD2; color: #B71C1C; }
+@keyframes popHeart { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.post-card:hover .stat-item:not(.like-stat) { background: #E1F5FE; color: #0277BD; }
 
-/* --- 加载更多 --- */
-.load-more-container {
-  margin-top: 50px;
-  text-align: center;
-}
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 2px dashed #F0F4F8; }
+.category-badge { font-size: 11px; font-weight: 800; color: #0288D1; background: #E1F5FE; padding: 4px 10px; border-radius: 12px; display: flex; align-items: center; gap: 4px; }
+.time-ago { font-size: 12px; color: #B0BEC5; font-weight: 600; }
+
+/* 加载更多 */
+.load-more-container { margin-top: 50px; text-align: center; }
 .load-more-btn {
   padding: 14px 40px;
   background: #FFF;
@@ -688,65 +684,32 @@ export default {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 4px 10px rgba(129, 212, 250, 0.2);
 }
-.load-more-btn:hover {
+.load-more-btn:hover:not(:disabled) {
   background: #E1F5FE;
   transform: translateY(-3px) scale(1.05);
   box-shadow: 0 6px 15px rgba(129, 212, 250, 0.4);
   border-style: solid;
 }
-.no-more {
-  margin-top: 50px;
-  text-align: center;
-  color: #90A4AE;
-  font-size: 15px;
-  font-weight: 600;
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
+.no-more { margin-top: 50px; text-align: center; color: #90A4AE; font-size: 15px; font-weight: 600; }
 
-/* --- 动画 --- */
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes shake { 0%, 100% { transform: rotate(0); } 10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); } 20%, 40%, 60%, 80% { transform: rotate(5deg); } }
-
-/* --- 移动端适配 --- */
+/* 移动端适配 */
 @media (max-width: 900px) {
   .filter-bar { justify-content: center; }
-  .filter-left-group {
-    justify-content: center;
-    width: 100%;
-    margin-bottom: 10px;
-  }
+  .filter-left-group { justify-content: center; width: 100%; margin-bottom: 10px; }
   .tabs { order: 1; }
   .special-actions { order: 2; margin-top: 10px; }
-
-  /* 小屏隐藏文字，只显示图标 */
   .pill-text { display: none; }
-  .action-pill {
-    padding: 10px;
-    border-radius: 50%;
-    width: 42px;
-    height: 42px;
-    justify-content: center;
-  }
-
-  .categories {
-    justify-content: center;
-    width: 100%;
-    margin-top: 10px;
-  }
+  .action-pill { padding: 10px; border-radius: 50%; width: 42px; height: 42px; justify-content: center; }
+  .categories { justify-content: center; width: 100%; margin-top: 10px; }
 }
-
 @media (max-width: 600px) {
-  .tabs {
-    flex-direction: column;
-    width: 100%;
-    padding: 4px;
-  }
-  .tab-item {
-    width: 100%;
-    text-align: center;
-  }
-  .special-actions {
-    justify-content: center;
-    width: 100%;
-  }
+  .tabs { flex-direction: column; width: 100%; padding: 4px; }
+  .tab-item { width: 100%; text-align: center; }
+  .special-actions { justify-content: center; width: 100%; }
 }
 </style>

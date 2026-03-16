@@ -93,14 +93,14 @@
 </template>
 
 <script>
-import axios from 'axios'; // 确保安装了 axios
+// 引入刚才定义的接口
+import { submitPhotographerApplication } from '@/api/photographer';
 
 export default {
   name: "EditNavBar",
   props: {
     userAvatar: { type: String, default: '' },
     userName: { type: String, default: 'User' },
-    // 可选：传入当前是否是摄影师的状态
     isPhotographer: { type: Boolean, default: false }
   },
   emits: ['profile', 'application-success'],
@@ -135,6 +135,8 @@ export default {
 
     async submitApplication() {
       const text = this.form.description.trim();
+
+      // 1. 前端基础校验
       if (!text) {
         this.submitError = '申请理由不能为空哦～';
         return;
@@ -144,29 +146,57 @@ export default {
       this.submitError = '';
 
       try {
-        // 调用后端接口
-        const response = await axios.post('/api/photographerapplication/apply', {
+        // 2. 调用后端接口
+        const response = await submitPhotographerApplication({
           description: text
         });
 
-        // 假设后端返回 Result.ok() 结构
-        if (response.data && response.data.code === 200) {
-          // 成功提示
-          alert('🎉 申请提交成功！\n我们会尽快审核您的资料，请耐心等待。');
+        // 3. 处理返回结果 (假设后端统一返回结构: { code: 200, message: '...', data: ... })
+        // 如果你的 request 拦截器已经处理了非 200 的情况并直接 throw 错误，这里可以直接认为成功
+        const res = response.data;
+
+        // 兼容两种情况：
+        // A. 拦截器未处理业务码，需手动判断
+        // B. 拦截器已处理，直接执行成功逻辑
+        const isSuccess = res.code === 200 || res.code === '200' || response.status === 200;
+
+        if (isSuccess) {
+          // ✅ 成功
+          const msg = res.message || '申请提交成功！我们会尽快审核。';
+          alert('🎉 ' + msg);
 
           this.closeModal();
 
-          // 通知父组件更新状态（可选）
+          // 通知父组件：申请成功（父组件可以据此刷新用户状态或显示提示）
           this.$emit('application-success');
 
-          // 这里也可以暂时将本地状态设为 true，或者等刷新后变
-          // this.$emit('update:isPhotographer', true);
         } else {
-          throw new Error(response.data.message || '提交失败');
+          // ⚠️ 业务逻辑失败 (如：重复提交)
+          throw new Error(res.message || '提交失败，请稍后重试');
         }
+
       } catch (error) {
-        console.error('申请失败:', error);
-        this.submitError = error.response?.data?.message || error.message || '网络开小差了，请稍后重试';
+        console.error('申请提交异常:', error);
+
+        // 4. 错误信息提取
+        let errorMsg = '网络开小差了，请稍后重试';
+
+        if (error.response) {
+          // HTTP 状态码错误 (401, 500 等)
+          if (error.response.status === 401) {
+            errorMsg = '登录已过期，请重新登录';
+            // 可选：跳转登录页
+            // this.$router.push('/login');
+            return;
+          }
+          // 尝试获取后端返回的具体消息
+          errorMsg = error.response.data?.message || error.response.data?.msg || errorMsg;
+        } else if (error.message) {
+          // 上面 throw new Error 捕获到的业务消息
+          errorMsg = error.message;
+        }
+
+        this.submitError = errorMsg;
       } finally {
         this.isSubmitting = false;
       }

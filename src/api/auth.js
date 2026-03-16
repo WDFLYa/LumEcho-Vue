@@ -37,8 +37,30 @@ export function getUserById(id) {
     return request.get(`/api/user/getuserinfo/${id}`);
 }
 
+export function getCurrentUserDetail() {
+    return request.get("/api/user/getuser")
+}
+
 export function getUserPosts(userId, page = 1, size = 10) {
     return request.get("/api/post/user", {
         params: { userId, page, size }
     });
+}
+
+export function updateUserProfile(data) {
+    return request.post("/api/user/update", data)
+}
+
+export function completeAccount(data) {
+    return request.post('/api/user/complete/account',data)
+}
+
+// 完善手机 (针对账号登录用户)
+export function completePhone(data) {
+    return request.post('/api/user/complete/phone',data)
+}
+
+// 发送验证码
+export function sendCompleteCode(data) {
+    return request.post('/api/message/complete/sendcode', data)
 }

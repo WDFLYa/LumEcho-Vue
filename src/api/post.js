@@ -54,3 +54,6 @@ export function toggleLike(postId) {
 export function getUserPostsApi(params) {
     return request.get('/api/post/select/user', { params });
 }
+export function getUserLikedPostsApi(params) {
+    return request.get('/api/post/like/list', { params });
+}

@@ -103,7 +103,7 @@
             @click="goToDetail(post.id)"
         >
           <div class="card-img-wrap">
-            <!-- 封面图，带默认图处理 -->
+            <!-- 封面图 -->
             <img
                 :src="post.cover || 'http://localhost:9000/lumecho/avatar.png'"
                 class="card-img"
@@ -112,7 +112,16 @@
                 onerror="this.src='http://localhost:9000/lumecho/avatar.png'"
             />
 
+            <!-- 🔥 悬浮层显示点赞评论数 -->
+            <div class="card-overlay">
+              <span class="overlay-heart">❤️</span>
+              <span class="overlay-num">{{ post.likes ?? 0 }}</span>
+              <span style="margin: 0 8px;">·</span>
+              <span class="overlay-heart">💬</span>
+              <span class="overlay-num">{{ post.comments ?? 0 }}</span>
+            </div>
           </div>
+
           <div class="card-body">
             <h4 class="card-title">{{ post.title }}</h4>
             <p class="card-desc">{{ post.summary || truncate(post.content, 30) }}</p>
@@ -143,6 +152,82 @@
         </div>
       </div>
 
+      <!-- 🔥 喜欢的帖子列表 (Liked Tab) -->
+      <div class="posts-grid" v-else-if="currentTab === 'liked'">
+
+        <!-- 加载中 -->
+        <div v-if="loadingLiked && likedPosts.length === 0" class="loading-container">
+          <div class="loading-dots">
+            <span>✨</span><span>🌟</span><span>✨</span>
+          </div>
+          <p class="loading-text">正在捕捉灵感火花...</p>
+        </div>
+
+        <!-- 帖子卡片 -->
+        <div
+            v-for="post in likedPosts"
+            :key="post.id"
+            class="post-card"
+            @click="goToDetail(post.id)"
+        >
+          <div class="card-img-wrap">
+            <!-- 封面图 -->
+            <img
+                :src="post.cover || 'http://localhost:9000/lumecho/avatar.png'"
+                class="card-img"
+                loading="lazy"
+                alt="cover"
+                onerror="this.src='http://localhost:9000/lumecho/avatar.png'"
+            />
+
+            <!-- 🔥 悬浮层显示点赞评论数 -->
+            <div class="card-overlay">
+              <span class="overlay-heart">❤️</span>
+              <span class="overlay-num">{{ post.likes ?? 0 }}</span>
+              <span style="margin: 0 8px;">·</span>
+              <span class="overlay-heart">💬</span>
+              <span class="overlay-num">{{ post.comments ?? 0 }}</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <h4 class="card-title">{{ post.title }}</h4>
+
+            <!-- 🔥 新增：作者信息 -->
+            <div class="card-author">
+              <img
+                  :src="post.avatar || 'http://localhost:9000/lumecho/avatar.png'"
+                  class="author-mini-avatar"
+                  alt="author"
+                  onerror="this.src='http://localhost:9000/lumecho/avatar.png'"
+              />
+              <span class="author-name">{{ post.username }}</span>
+            </div>
+
+            <div class="card-meta">
+              <span class="time-tag">{{ post.timeAgo }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 加载更多按钮 / 没有更多了 -->
+        <div v-if="!loadingLiked && hasMoreLiked" class="load-more-trigger" @click="loadMoreLiked">
+          <button class="load-more-btn">
+            ✨ 加载更多灵感
+          </button>
+        </div>
+
+        <div v-if="!loadingLiked && !hasMoreLiked && likedPosts.length > 0" class="no-more-text">
+          ~ 已经到底啦，休息一下吧 ~ 🍵
+        </div>
+
+        <!-- 空状态 (没有点赞) -->
+        <div v-if="!loadingLiked && likedPosts.length === 0" class="empty-state">
+          <div class="empty-emoji">💔</div>
+          <p class="empty-text">{{ isMe ? '还没有点赞过任何作品哦~' : 'Ta 还没有点赞过任何作品呢...' }}</p>
+        </div>
+      </div>
+
       <!-- 其他 Tab 的空状态 -->
       <div v-else class="empty-state other-tab-empty">
         <div class="empty-emoji">🚧</div>
@@ -155,8 +240,7 @@
 <script>
 import ProfileNavBar from '@/components/NavBar/ProfileNavBar.vue';
 import { getCurrentUserInfo, getUserById } from '@/api/auth';
-// ✅ 假设你有一个 api/post.js 文件，如果没有，请在下面手动定义 request
-import { getUserPostsApi } from '@/api/post';
+import { getUserPostsApi, getUserLikedPostsApi } from '@/api/post';
 
 export default {
   name: "UserProfile",
@@ -166,6 +250,7 @@ export default {
       targetUserId: null,
       isMe: false,
       loading: true,
+      loadingLiked: false,
 
       // 用户信息
       user: {
@@ -175,15 +260,19 @@ export default {
       },
       stats: { posts: 0, followers: 0, following: 0 },
 
-      // 帖子相关
+      // 帖子相关 (全部作品)
       posts: [],
       currentTab: 'posts',
-
-      // 分页参数
       offset: 0,
       limit: 8,
       hasMore: true,
-      isLoadingMore: false // 区分首次加载和加载更多
+      isLoadingMore: false,
+
+      // 点赞帖子相关
+      likedPosts: [],
+      offsetLiked: 0,
+      hasMoreLiked: true,
+      isLoadingMoreLiked: false
     };
   },
   async mounted() {
@@ -211,7 +300,7 @@ export default {
 
       // 只有获取到 userId 后才加载帖子
       if (this.targetUserId) {
-        await this.fetchPosts(true); // true 表示重置分页
+        await this.fetchPosts(true);
       }
       this.loading = false;
     },
@@ -256,11 +345,9 @@ export default {
         bio: data.bio || '',
         avatar: data.avatar || 'http://localhost:9000/specialty/avatar.png'
       };
-      // 如果后端返回了统计信息，可以在这里更新
-      // this.stats.followers = data.followerCount || 0;
     },
 
-    // ✅ 核心：获取帖子列表
+    // ✅ 核心：获取帖子列表（全部作品）
     async fetchPosts(isReset = false) {
       if (!this.targetUserId) return;
 
@@ -276,8 +363,6 @@ export default {
       this.isLoadingMore = true;
 
       try {
-        // 调用后端接口
-        // 假设 api/post.js 中导出了 getUserPostsApi
         const res = await getUserPostsApi({
           userId: this.targetUserId,
           offset: this.offset,
@@ -288,22 +373,30 @@ export default {
           const responseData = res.data.data;
           const newList = responseData.data || [];
 
-          // 更新列表
-          this.posts = [...this.posts, ...newList];
+          const formattedList = newList.map(item => ({
+            ...item,
+            likes: item.likes ?? item.likeCount ?? 0,
+            comments: item.comments ?? item.commentCount ?? 0,
+            views: item.views ?? 0,
+            cover: item.cover || item.imageUrls?.[0] || 'http://localhost:9000/lumecho/avatar.png',
+            timeAgo: item.timeAgo || this.formatTimeAgo(item.createTime) || '刚刚',
+            title: item.title || '无标题',
+            content: item.content || '',
+            categoryId: item.categoryId,
+            category: item.category || '综合'
+          }));
 
-          // 更新总数统计 (可选，如果后端没返回具体总数，可以用 hasMore 推断)
+          this.posts = [...this.posts, ...formattedList];
+
           if (isReset && responseData.total !== undefined) {
             this.stats.posts = responseData.total;
-          } else if (isReset && responseData.total === undefined) {
-            // 简单估算，或者保持原样
-            this.stats.posts = newList.length;
+          } else if (isReset) {
+            this.stats.posts = formattedList.length;
           }
 
-          // 判断是否有更多
           this.hasMore = responseData.hasMore;
 
-          // 更新 offset 为下一次做准备
-          if (newList.length > 0) {
+          if (formattedList.length > 0) {
             this.offset += this.limit;
           }
         }
@@ -315,17 +408,84 @@ export default {
       }
     },
 
-    // 加载更多
+    // 🔥 新增：获取点赞帖子列表
+    async fetchLikedPosts(isReset = false) {
+      if (!this.targetUserId) return;
+
+      if (isReset) {
+        this.offsetLiked = 0;
+        this.likedPosts = [];
+        this.hasMoreLiked = true;
+        this.isLoadingMoreLiked = false;
+      }
+
+      if (this.isLoadingMoreLiked || !this.hasMoreLiked) return;
+
+      this.isLoadingMoreLiked = true;
+      this.loadingLiked = true;
+
+      try {
+        const res = await getUserLikedPostsApi({
+          userId: this.targetUserId,
+          offset: this.offsetLiked,
+          limit: this.limit
+        });
+
+        if (res.data.code === 200) {
+          const responseData = res.data.data;
+          const newList = responseData.data || [];
+
+          const formattedList = newList.map(item => ({
+            ...item,
+            likes: item.likes ?? item.likeCount ?? 0,
+            comments: item.comments ?? item.commentCount ?? 0,
+            views: item.views ?? 0,
+            cover: item.cover || item.imageUrls?.[0] || 'http://localhost:9000/lumecho/avatar.png',
+            timeAgo: item.timeAgo || this.formatTimeAgo(item.createTime) || '刚刚',
+            title: item.title || '无标题',
+            content: item.content || '',
+            username: item.username || '神秘用户',
+            avatar: item.avatar || 'http://localhost:9000/lumecho/avatar.png'
+          }));
+
+          this.likedPosts = [...this.likedPosts, ...formattedList];
+          this.hasMoreLiked = responseData.hasMore;
+
+          if (formattedList.length > 0) {
+            this.offsetLiked += this.limit;
+          }
+        }
+      } catch (error) {
+        console.error('加载点赞列表失败:', error);
+        this.$message.error('加载失败，请重试');
+      } finally {
+        this.isLoadingMoreLiked = false;
+        this.loadingLiked = false;
+      }
+    },
+
+    // 加载更多 (全部作品)
     loadMore() {
       this.fetchPosts(false);
+    },
+
+    // 🔥 加载更多 (点赞列表)
+    loadMoreLiked() {
+      this.fetchLikedPosts(false);
     },
 
     switchTab(tab) {
       if (this.currentTab === tab) return;
       this.currentTab = tab;
-      // 切换回 Posts 时，如果列表为空，重新加载
+
+      // 切换到全部作品
       if (tab === 'posts' && this.posts.length === 0 && !this.loading) {
         this.fetchPosts(true);
+      }
+
+      // 🔥 切换到喜欢的
+      if (tab === 'liked' && this.likedPosts.length === 0 && !this.loadingLiked) {
+        this.fetchLikedPosts(true);
       }
     },
 
@@ -335,9 +495,26 @@ export default {
     goToDetail(id) { this.$router.push(`/post/${id}`); },
     handleFollow() { this.$message.success("关注成功！(≧∇≦)"); },
     openList(type) { this.$message.info(`查看${type}列表功能开发中...`); },
+
     truncate(str, len) {
       if (!str) return '';
       return str.length > len ? str.substring(0, len) + '...' : str;
+    },
+
+    formatTimeAgo(dateStr) {
+      if (!dateStr) return '刚刚';
+      const now = new Date();
+      const past = new Date(dateStr);
+      const diff = now - past;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return '刚刚';
+      if (minutes < 60) return `${minutes}分钟前`;
+      if (hours < 24) return `${hours}小时前`;
+      if (days < 30) return `${days}天前`;
+      return `${past.getMonth() + 1}/${past.getDate()}`;
     }
   }
 };
@@ -568,6 +745,30 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* 🔥 新增：作者信息样式 */
+.card-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.author-mini-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #f0f0f0;
+}
+.author-name {
+  font-size: 0.75rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
 .card-desc {
   font-size: 0.8rem;
   color: #666;
@@ -695,7 +896,7 @@ export default {
   .posts-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
   .cute-tabs { top: 0; background: rgba(250, 250, 250, 0.95); }
   .tab-btn { padding: 6px 12px; font-size: 0.8rem; }
-  .tab-btn .tab-icon { display: none; } /* 移动端隐藏图标节省空间 */
+  .tab-btn .tab-icon { display: none; }
   .card-title { font-size: 0.85rem; }
   .card-desc { font-size: 0.75rem; -webkit-line-clamp: 2; }
 }
