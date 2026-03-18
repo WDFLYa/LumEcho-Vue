@@ -20,7 +20,7 @@
       </div>
 
       <div v-else-if="challenge" class="detail-flow">
-        <!-- 阶段一：报名/准备期 (status 0 或 1) -->
+        <!-- 阶段一：报名/准备期 -->
         <div v-if="isActionPhase" class="phase-action">
           <section class="hero-section">
             <div class="hero-cover">
@@ -74,28 +74,15 @@
                 </div>
               </div>
 
-              <button
-                  v-if="challenge.status === 0"
-                  class="action-btn btn-disabled"
-                  disabled
-              >
+              <button v-if="challenge.status === 0" class="action-btn btn-disabled" disabled>
                 🔒 活动未开始
               </button>
 
-              <button
-                  v-else-if="!hasJoined"
-                  class="action-btn btn-primary"
-                  @click="goSubmitWork"
-                  :disabled="isFull"
-              >
+              <button v-else-if="!hasJoined" class="action-btn btn-primary" @click="goSubmitWork" :disabled="isFull">
                 {{ isFull ? '🚫 已满员' : '🚀 立即报名并提交' }}
               </button>
 
-              <button
-                  v-else-if="!hasSubmittedWork"
-                  class="action-btn btn-accent"
-                  @click="goSubmitWork"
-              >
+              <button v-else-if="!hasSubmittedWork" class="action-btn btn-accent" @click="goSubmitWork">
                 📷 去提交作品
               </button>
 
@@ -106,7 +93,7 @@
           </section>
         </div>
 
-        <!-- 阶段二：评审/结果期 (status 2 或 3) -->
+        <!-- 阶段二：评审/结果期 -->
         <div v-else class="phase-review">
           <header class="review-header">
             <span :class="['status-badge', getStatusClass(challenge.status)]">
@@ -118,6 +105,7 @@
             </p>
           </header>
 
+          <!-- 🏆 荣耀榜 -->
           <section class="podium-section">
             <h2 class="section-title">🌟 荣耀榜</h2>
             <div class="podium-container">
@@ -160,6 +148,7 @@
             </div>
           </section>
 
+          <!-- 📸 参赛作品列表 -->
           <section class="all-works-section">
             <h2 class="section-title">
               📸 参赛作品
@@ -175,11 +164,12 @@
               <div v-for="item in submissions" :key="item.id" class="work-card">
                 <div class="work-img-box">
                   <img :src="item.coverUrl || defaultCover" loading="lazy" />
-                  <div v-if="canVote" class="overlay-action">
-                    <button class="float-vote" @click="handleScore(item)" :disabled="hasVoted(item.id)">
-                      <span>{{ hasVoted(item.id) ? '✅ 已打分' : '⚖️ 打分' }}</span>
+                  <!-- ✅ 悬停时右下角浮现评分按钮 -->
+                  <transition name="fade-slide">
+                    <button v-if="canVote" class="float-vote" @click="openScoreModal(item)">
+                      <span>⚖️ 评分</span>
                     </button>
-                  </div>
+                  </transition>
                   <div v-if="item.finalScore" class="final-score-tag">
                     🏆 {{ item.finalScore }}分
                   </div>
@@ -202,16 +192,25 @@
         </div>
       </div>
     </main>
+
+    <!-- 🔥 大评分弹窗 -->
+    <ScoreModal
+        :visible="showScoreModal"
+        :submission="currentSubmission"
+        @update:visible="showScoreModal = $event"
+        @submit="handleScoreSubmit"
+    />
   </div>
 </template>
 
 <script>
 import ChallengeDetailNavBar from "@/components/NavBar/ChallengeDetailNavBar.vue";
+import ScoreModal from "@/components/Challenge/ScoreModal.vue";
 import { getChallengeDetail, getChallengeSubmissions } from "@/api/challenge";
 
 export default {
   name: "ChallengeDetail",
-  components: { ChallengeDetailNavBar },
+  components: { ChallengeDetailNavBar, ScoreModal },
 
   data() {
     return {
@@ -229,7 +228,11 @@ export default {
 
       hasJoined: false,
       hasSubmittedWork: false,
-      votedIds: []
+      votedIds: [],
+
+      // 评分弹窗
+      showScoreModal: false,
+      currentSubmission: null
     };
   },
 
@@ -344,11 +347,14 @@ export default {
           submissionsData = [];
         }
 
-        this.submissions = submissionsData.map(item => ({
+        // 🔥 只给评分数据加假数据 (模拟其他评委的评分)
+        this.submissions = submissionsData.map((item, index) => ({
           ...item,
           coverUrl: item.coverUrl || this.defaultCover,
           authorAvatar: item.authorAvatar || this.defaultCover,
-          finalScore: Number(item.finalScore) || 0
+          finalScore: Number(item.finalScore) || 0,
+          // 假数据：模拟每个作品有 1-3 条其他评委的评分
+          scores: this.mockScores(index)
         }));
 
       } catch (e) {
@@ -359,8 +365,73 @@ export default {
       }
     },
 
+    // 🔥 假数据：模拟评委评分
+    mockScores(index) {
+      const mockComments = [
+        { judgeName: "评委老师 A", score: 9.5, comment: "构图非常棒，光影处理得很细腻！" },
+        { judgeName: "摄影师小王", score: 9.0, comment: "色彩很温柔，模特表现力很好" },
+        { judgeName: "资深评审", score: 8.5, comment: "创意不错，但后期可以再精细一些" },
+        { judgeName: "艺术总监", score: 9.8, comment: "非常有感觉的作品，喜欢！" }
+      ];
+
+      const count = Math.floor(Math.random() * 3) + 1;
+      const scores = [];
+
+      for (let i = 0; i < count; i++) {
+        const mock = mockComments[(index + i) % mockComments.length];
+        scores.push({
+          id: `mock-${index}-${i}`,
+          judgeName: mock.judgeName,
+          judgeAvatar: "http://localhost:9000/lumecho/avatar.png",
+          score: mock.score,
+          comment: mock.comment,
+          createTime: new Date(Date.now() - Math.random() * 86400000).toISOString()
+        });
+      }
+
+      return scores;
+    },
+
+    // 🔥 打开评分弹窗
+    openScoreModal(item) {
+      this.currentSubmission = item;
+      this.showScoreModal = true;
+    },
+
+    // 🔥 【关键修改】提交评分处理
+    handleScoreSubmit(data) {
+      // 1. 更新本地数据列表（让分数即时显示）
+      const newScore = {
+        id: Date.now(),
+        judgeName: "我",
+        judgeAvatar: this.currentUserAvatar,
+        score: data.score,
+        comment: data.comment,
+        createTime: new Date().toISOString()
+      };
+
+      const submission = this.submissions.find(s => s.id === data.submissionId);
+      if (submission) {
+        if (!submission.scores) submission.scores = [];
+        submission.scores.unshift(newScore);
+
+        const total = submission.scores.reduce((sum, s) => sum + s.score, 0);
+        submission.finalScore = (total / submission.scores.length).toFixed(1);
+      }
+
+      // 2. 【删除了 alert】
+      // 3. 【删除了 this.showScoreModal = false】 -> 让子组件自己控制显示“成功状态”，不关闭弹窗
+
+      // 这里可以加一个全局提示（如果项目里有 ElementUI 或其他库），如果没有就不加，
+      // 因为子组件内部已经有漂亮的 Toast 了。
+      // 例如：this.$message.success('评分已提交');
+
+      console.log('评分提交成功，数据已更新，弹窗保持打开由子组件控制状态');
+    },
+
     goSubmitWork() {
       if (Number(this.challenge.status) === 0) {
+        // 这里可以用自定义 toast 替代 alert，或者保留 alert 也行，因为不是评分场景
         alert("活动尚未开始");
         return;
       }
@@ -377,16 +448,6 @@ export default {
 
     goBack() {
       this.$router.push("/activity");
-    },
-
-    hasVoted(id) {
-      return this.votedIds.includes(id);
-    },
-
-    handleScore(item) {
-      if (this.hasVoted(item.id)) return;
-      item.finalScore = (item.finalScore || 0) + 1;
-      this.votedIds.push(item.id);
     },
 
     retry() {
@@ -406,9 +467,8 @@ export default {
     },
 
     getStatusText(status) {
-      const s = Number(status);
       const map = { 0: "未开始", 1: "进行中", 2: "评审中", 3: "已结束" };
-      return map[s] || "未知";
+      return map[status] || "未知";
     },
 
     formatDate(time) {
@@ -421,10 +481,10 @@ export default {
 </script>
 
 <style scoped>
-/* --- 基础布局 - 添加淡紫色背景 --- */
+/* ... (保持你原有的 style 不变，这里省略以节省空间，直接复制你原来的 style 部分即可) ... */
+/* 基础样式 */
 .challenge-page {
   min-height: 100vh;
-  /* 淡紫色渐变背景 */
   background: linear-gradient(180deg, #F8F5FA 0%, #F0E8F5 50%, #FFFFFF 100%);
   font-family: 'Nunito', sans-serif;
   color: #333333;
@@ -436,7 +496,6 @@ export default {
   padding: 40px 20px;
 }
 
-/* --- 加载/错误状态 --- */
 .loader-fullscreen, .error-state, .loading-works {
   display: flex;
   flex-direction: column;
@@ -446,6 +505,7 @@ export default {
   font-size: 1.2rem;
   color: #666;
 }
+
 .cute-loader, .error-icon { font-size: 4rem; margin-bottom: 20px; }
 .retry-btn, .back-btn {
   margin-top: 10px;
@@ -458,7 +518,6 @@ export default {
 .retry-btn { background: #8E24AA; color: #FFF; }
 .back-btn { background: #EEEEEE; color: #333333; }
 
-/* --- 状态标签 --- */
 .status-badge {
   font-size: 12px;
   font-weight: 800;
@@ -472,7 +531,6 @@ export default {
 .status-review { background: #E3F2FD; color: #1565C0; }
 .status-ended { background: #FFF3E0; color: #E65100; }
 
-/* --- 海报区域 --- */
 .hero-section {
   background: #ffe4ff;
   border-radius: 24px;
@@ -491,13 +549,17 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+}
 .hero-content {
   padding: 30px;
   position: relative;
   margin-top: -100px;
   color: #FFFFFF;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.4); /* 阴影增加可读性 */
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .hero-title {
   font-size: 2rem;
@@ -527,7 +589,6 @@ export default {
 }
 .meta-icon { font-size: 1.2rem; }
 
-/* --- 信息卡片 --- */
 .info-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -606,7 +667,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* --- 评审期 --- */
 .review-header {
   text-align: center;
   margin-bottom: 40px;
@@ -623,7 +683,6 @@ export default {
   font-size: 1rem;
 }
 
-/* 领奖台 - 统一动画效果 */
 .podium-section {
   margin-bottom: 50px;
   background: #FFFFFF;
@@ -658,7 +717,6 @@ export default {
   min-height: 350px;
 }
 
-/* 🔧 统一领奖台动画：全部放大 */
 .podium-item {
   display: flex;
   flex-direction: column;
@@ -667,7 +725,7 @@ export default {
   transition: transform 0.3s ease;
   width: 160px;
 }
-/* 所有领奖台悬停时都放大 1.05 倍 */
+
 .podium-item:hover {
   transform: scale(1.05);
 }
@@ -678,6 +736,7 @@ export default {
   z-index: 2;
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
 }
+
 .crown {
   position: absolute;
   top: -35px;
@@ -685,6 +744,7 @@ export default {
   animation: float 2s infinite ease-in-out;
   z-index: 3;
 }
+
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
@@ -701,12 +761,14 @@ export default {
   position: relative;
   flex-shrink: 0;
 }
+
 .photo-frame.large {
   width: 180px;
   height: 180px;
   border-width: 8px;
   border-color: #FFD93D;
 }
+
 .photo-frame img {
   width: 100%;
   height: 100%;
@@ -724,6 +786,7 @@ export default {
   border-radius: 10px;
   font-weight: 700;
 }
+
 .score-badge.highlight {
   background: #FFD93D;
   color: #333333;
@@ -739,11 +802,13 @@ export default {
   box-shadow: 0 4px 10px rgba(106, 27, 154, 0.1);
   width: 100%;
 }
+
 .name {
   font-weight: 800;
   color: #333333;
   font-size: 0.95rem;
 }
+
 .work-title {
   font-size: 0.85rem;
   color: #999999;
@@ -756,22 +821,10 @@ export default {
   margin-right: auto;
 }
 
-/* 🔧 领奖台位置调整 - 移除不一致的 transform */
-.rank-2 {
-  order: 1;
-  margin-bottom: 40px;
-}
-.rank-1 {
-  order: 2;
-  margin-bottom: 0;
-  z-index: 10;
-}
-.rank-3 {
-  order: 3;
-  margin-bottom: 40px;
-}
+.rank-2 { order: 1; margin-bottom: 40px; }
+.rank-1 { order: 2; margin-bottom: 0; z-index: 10; }
+.rank-3 { order: 3; margin-bottom: 40px; }
 
-/* 作品网格 */
 .all-works-section {
   background: #FFFFFF;
   border-radius: 24px;
@@ -779,11 +832,13 @@ export default {
   box-shadow: 0 4px 20px rgba(106, 27, 154, 0.08);
   border: 1px solid #EEEEEE;
 }
+
 .works-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 25px;
 }
+
 .work-card {
   background: #FFFFFF;
   border-radius: 20px;
@@ -792,15 +847,18 @@ export default {
   border: 1px solid #EEEEEE;
   transition: transform 0.3s ease;
 }
+
 .work-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(106, 27, 154, 0.15);
 }
+
 .work-img-box {
   position: relative;
   padding-top: 100%;
   background: #F5F5F5;
 }
+
 .work-img-box img {
   position: absolute;
   inset: 0;
@@ -808,29 +866,46 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-.overlay-action {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.work-card:hover .overlay-action { opacity: 1; }
+
+/* ✅ 悬停时右下角浮现评分按钮 */
 .float-vote {
-  background: #FFFFFF;
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.95);
   color: #8E24AA;
-  border: none;
+  border: 2px solid #8E24AA;
   padding: 8px 16px;
   border-radius: 20px;
   font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(142, 36, 170, 0.3);
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(10px);
 }
-.float-vote:disabled {
-  color: #999999;
-  cursor: default;
+
+.work-card:hover .float-vote {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.float-vote:hover {
+  background: #AB47BC;
+  color: #FFF;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
 .final-score-tag {
@@ -871,7 +946,6 @@ export default {
 }
 .empty-icon { font-size: 4rem; margin-bottom: 20px; }
 
-/* 响应式 */
 @media (max-width: 768px) {
   .hero-title { font-size: 1.5rem; }
   .hero-cover { height: 300px; }

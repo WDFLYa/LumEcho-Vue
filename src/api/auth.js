@@ -65,6 +65,10 @@ export function sendCompleteCode(data) {
     return request.post('/api/message/complete/sendcode', data)
 }
 
+export function updateUserAvatar(data) {
+    return request.post('/api/user/updateuseravatar', data)
+}
+
 
 export function followUser(targetId) {
     return request.post(`/api/userfollow/follow/${targetId}`)

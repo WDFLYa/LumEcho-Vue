@@ -1,6 +1,6 @@
 <template>
   <div class="profile-edit-container">
-    <!-- 专用导航栏 (已适配绿色系) -->
+    <!-- 专用导航栏 -->
     <EditNavBar
         :user-name="currentUserName"
         :user-avatar="currentUserAvatar"
@@ -12,21 +12,38 @@
     <main class="edit-wrapper">
       <div class="edit-card glass-panel">
 
-        <!-- 1. 头部：身份卡片 (增加可爱装饰) -->
+        <!-- 1. 头部：身份卡片 -->
         <div class="identity-header">
           <div class="avatar-section">
+            <!-- 头像上传框 -->
             <div class="avatar-upload-box" @click="triggerAvatarUpload">
               <img :src="formData.avatar || defaultAvatar" class="current-avatar" alt="Avatar" />
-              <div class="upload-overlay">
+
+              <!-- 🔥 上传中遮罩层 -->
+              <div v-if="uploadingAvatar" class="uploading-overlay">
+                <span class="spinner-icon"></span>
+                <span class="uploading-text">上传中...</span>
+              </div>
+
+              <!-- 悬停遮罩层 (仅在非上传状态显示) -->
+              <div v-show="!uploadingAvatar" class="upload-overlay">
                 <span class="icon">📸</span>
                 <span class="text">换张好看的</span>
               </div>
-              <input type="file" ref="avatarInput" accept="image/*" style="display: none" @change="handleAvatarChange" />
-              <!-- 悬浮小星星 -->
-              <span class="floating-star">✨</span>
+
+              <input
+                  type="file"
+                  ref="avatarInput"
+                  accept="image/*"
+                  style="display: none"
+                  @change="handleAvatarChange"
+              />
+
+              <!-- 悬浮小星星 (仅在非上传状态显示) -->
+              <span v-show="!uploadingAvatar" class="floating-star">✨</span>
             </div>
 
-            <!-- 角色与状态徽章 (更圆润可爱) -->
+            <!-- 角色与状态徽章 -->
             <div class="badges-row">
               <span class="badge role-badge" :class="getRoleClass(formData.role)">
                 <span class="badge-icon">{{ getRoleIcon(formData.role) }}</span>
@@ -50,13 +67,12 @@
 
         <hr class="divider" />
 
-        <!-- 2. 敏感信息区 (盾牌风格) -->
+        <!-- 2. 敏感信息区 -->
         <div class="section-block locked-section">
           <div class="section-header">
             <h3 class="section-title">
               <span class="icon-box">🛡️</span> 安全账号信息
             </h3>
-            <!-- 动态标签：如果两项都有，显示不可修改；否则显示需补全 -->
             <span class="section-tag" :class="isInfoComplete ? 'lock-tag' : 'warning-tag'">
               {{ isInfoComplete ? '🔒 不可修改' : '⚠️ 需补全' }}
             </span>
@@ -69,7 +85,6 @@
             <!-- 账号项 -->
             <div class="info-item">
               <label class="info-label">🆔 登录账号</label>
-              <!-- 修改点：如果没有账号，添加点击事件和 clickable 样式 -->
               <div
                   class="info-value-box"
                   :class="{ 'clickable': !formData.account }"
@@ -78,7 +93,6 @@
                 <span class="info-value" :class="{ 'placeholder': !formData.account }">
                   {{ formData.account || '点击此处设置账号' }}
                 </span>
-                <!-- 有值显示锁，没值显示去设置按钮 -->
                 <span v-if="formData.account" class="lock-icon">🔐</span>
                 <span v-else class="action-icon">✨ 去设置</span>
               </div>
@@ -87,7 +101,6 @@
             <!-- 手机项 -->
             <div class="info-item">
               <label class="info-label">📱 手机号码</label>
-              <!-- 修改点：如果没有手机，添加点击事件和 clickable 样式 -->
               <div
                   class="info-value-box"
                   :class="{ 'clickable': !formData.phone }"
@@ -96,7 +109,6 @@
                 <span class="info-value" :class="{ 'placeholder': !formData.phone }">
                   {{ formData.phone || '点击此处绑定手机' }}
                 </span>
-                <!-- 有值显示锁，没值显示去绑定按钮 -->
                 <span v-if="formData.phone" class="lock-icon">🔐</span>
                 <span v-else class="action-icon">✨ 去绑定</span>
               </div>
@@ -104,7 +116,7 @@
           </div>
         </div>
 
-        <!-- 3. 自由编辑区 (魔法笔风格) -->
+        <!-- 3. 自由编辑区 -->
         <div class="section-block editable-section">
           <div class="section-header">
             <h3 class="section-title">
@@ -151,7 +163,7 @@
           </div>
         </div>
 
-        <!-- 4. 系统信息展示 (时间胶囊风格) -->
+        <!-- 4. 系统信息展示 -->
         <div class="section-block system-section">
           <h3 class="section-title">
             <span class="icon-box">⏳</span> 账号小档案
@@ -181,7 +193,7 @@
       </div>
     </main>
 
-    <!-- Toast (更可爱的样式) -->
+    <!-- Toast -->
     <transition name="toast-fade">
       <div v-if="toastVisible" class="custom-toast" :class="toastType">
         <span class="toast-icon">{{ toastIcon }}</span>
@@ -189,14 +201,9 @@
       </div>
     </transition>
 
+    <!-- 补全信息模态框 -->
     <transition name="modal-fade">
-      <!--
-         关键点 1: style="z-index: 9999" 强制最高层级
-         关键点 2: fixed 定位确保它浮在整个页面最上层
-      -->
       <div v-if="showCompleteModal" class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;" @click.self="showCompleteModal = false">
-
-        <!-- 卡片内容 -->
         <div class="modal-card glass-panel" style="position: relative; z-index: 10000;">
           <div class="modal-header">
             <span class="modal-icon">🧩</span>
@@ -209,7 +216,7 @@
           </div>
 
           <div class="modal-body">
-            <!-- 场景 A: 补全账号 + 密码 -->
+            <!-- 场景 A: 补全账号 -->
             <div v-if="missingType === 'account'" class="complete-form">
               <div class="form-item">
                 <label class="form-label">🆔 登录账号</label>
@@ -222,7 +229,6 @@
                 />
                 <div v-if="completeErrors.account" class="error-msg">⚠️ {{ completeErrors.account }}</div>
               </div>
-
               <div class="form-item">
                 <label class="form-label">🔒 设置密码</label>
                 <input
@@ -236,7 +242,7 @@
               </div>
             </div>
 
-            <!-- 场景 B: 补全手机 + 验证码 (已优化倒计时显示) -->
+            <!-- 场景 B: 补全手机 -->
             <div v-else-if="missingType === 'phone'" class="complete-form">
               <div class="form-item">
                 <label class="form-label">📱 手机号码</label>
@@ -250,7 +256,6 @@
                 />
                 <div v-if="completeErrors.phone" class="error-msg">⚠️ {{ completeErrors.phone }}</div>
               </div>
-
               <div class="form-item">
                 <label class="form-label">📨 验证码</label>
                 <div class="input-group-code">
@@ -261,10 +266,6 @@
                       class="input-field input-code"
                       maxlength="6"
                   />
-                  <!--
-                     关键点 3: 按钮文字动态变化
-                     倒计时 > 0 时显示剩余时间，否则显示正常文字
-                  -->
                   <button
                       class="btn-code"
                       @click="handleSendCode"
@@ -296,13 +297,16 @@
 <script>
 import EditNavBar from '@/components/NavBar/EditNavBar.vue';
 
+// 🔥 关键导入：引入上传和更新接口
+import { uploadFile } from "@/api/file";
 import {
   getCurrentUserInfo,
   getCurrentUserDetail,
   updateUserProfile,
   completeAccount,
   completePhone,
-  sendCompleteCode
+  sendCompleteCode,
+  updateUserAvatar // 引入新定义的更新头像接口
 } from "@/api/auth";
 
 export default {
@@ -312,11 +316,12 @@ export default {
   data() {
     return {
       defaultAvatar: 'http://localhost:9000/specialty/avatar.png',
-
       currentUserAvatar: '',
       currentUserName: '',
 
       saving: false,
+      uploadingAvatar: false, // 🔥 新增：头像上传状态
+
       toastVisible: false,
       toastMessage: '',
       toastType: 'info',
@@ -367,13 +372,8 @@ export default {
   },
 
   mounted() {
-
-    // 🔥 获取头像 + 用户名 + id
     this.fetchNavUserInfo();
-
-    // 🔥 获取完整资料
     this.loadUserProfile();
-
   },
 
   beforeUnmount() {
@@ -381,34 +381,18 @@ export default {
   },
 
   methods: {
-
-    /**
-     * 获取导航栏信息
-     */
     async fetchNavUserInfo() {
-
       try {
-
         const res = await getCurrentUserInfo();
-
-        const data =
-            res.data.code === 200 ? res.data.data : res.data;
-
+        const data = res.data.code === 200 ? res.data.data : res.data;
         if (!data) return;
 
         this.currentUserAvatar = data.avatar || this.defaultAvatar;
-
         this.currentUserName = data.username || '未知用户';
-
         this.formData.id = data.id;
-
-        // ⭐ 关键
         this.formData.avatar = data.avatar || this.defaultAvatar;
-
       } catch (error) {
-
         console.error("获取用户信息失败:", error);
-
         this.currentUserAvatar = this.defaultAvatar;
         this.currentUserName = '用户';
       }
@@ -431,12 +415,8 @@ export default {
 
     async loadUserProfile() {
       try {
-
         const res = await getCurrentUserDetail();
-
-        const responseData =
-            res.data.code === 200 ? res.data.data : res.data;
-
+        const responseData = res.data.code === 200 ? res.data.data : res.data;
         if (!responseData) {
           this.showToast('未获取到用户数据', 'warning');
           return;
@@ -444,7 +424,6 @@ export default {
 
         this.formData = {
           ...this.formData,
-
           account: responseData.account || '',
           phone: responseData.phone || '',
           username: responseData.username || '',
@@ -455,11 +434,8 @@ export default {
           createTime: responseData.createTime,
           updateTime: responseData.updateTime
         };
-
       } catch (error) {
-
         console.error('❌ 加载用户详情失败:', error);
-
         this.showToast('加载数据失败，请刷新重试', 'error');
       }
     },
@@ -474,25 +450,18 @@ export default {
     },
 
     async handleSendCode() {
-
       const phoneRegex = /^1[3-9]\d{9}$/;
-
       if (!phoneRegex.test(this.completeForm.phone)) {
         this.completeErrors.phone = '请输入正确的11位手机号';
         return;
       }
-
       this.completeErrors.phone = '';
       this.sendingCode = true;
 
       try {
-
         await sendCompleteCode({ phone: this.completeForm.phone });
-
         this.showToast('验证码已发送，请注意查收 📩', 'success');
-
         this.countdown = 60;
-
         this.countdownTimer = setInterval(() => {
           this.countdown--;
           if (this.countdown <= 0) {
@@ -500,192 +469,189 @@ export default {
             this.countdown = 0;
           }
         }, 1000);
-
       } catch (error) {
-
         const msg = error.response?.data?.msg || '发送失败，请稍后再试';
-
         this.showToast(msg, 'error');
-
         this.completeErrors.phone = msg;
-
       } finally {
         this.sendingCode = false;
       }
     },
 
     async handleCompleteSubmit() {
-
       this.submitting = true;
       this.completeErrors = {};
 
       try {
-
         if (this.missingType === 'account') {
-
           if (!this.completeForm.account || this.completeForm.account.length < 3) {
             this.completeErrors.account = '账号长度至少3位';
             this.submitting = false;
             return;
           }
-
           if (!this.completeForm.password || this.completeForm.password.length < 6) {
             this.completeErrors.password = '密码长度至少6位';
             this.submitting = false;
             return;
           }
-
           await completeAccount({
             account: this.completeForm.account,
             password: this.completeForm.password
           });
-
           this.showToast('账号设置成功！🎉', 'success');
-
           this.formData.account = this.completeForm.account;
-        }
-
-        else if (this.missingType === 'phone') {
-
+        } else if (this.missingType === 'phone') {
           const phoneRegex = /^1[3-9]\d{9}$/;
-
           if (!phoneRegex.test(this.completeForm.phone)) {
             this.completeErrors.phone = '手机号格式不正确';
             this.submitting = false;
             return;
           }
-
           if (!/^\d{6}$/.test(this.completeForm.code)) {
             this.completeErrors.code = '请输入6位验证码';
             this.submitting = false;
             return;
           }
-
           await completePhone({
             phone: this.completeForm.phone,
             code: this.completeForm.code
           });
-
           this.showToast('手机绑定成功！🎉', 'success');
-
           this.formData.phone = this.completeForm.phone;
         }
-
         this.showCompleteModal = false;
-
       } catch (error) {
-
         const msg = error.response?.data?.msg || '操作失败，请重试';
-
         this.showToast(msg, 'error');
-
         if (this.missingType === 'account') {
           this.completeErrors.account = msg;
         } else {
           this.completeErrors.phone = msg;
         }
-
       } finally {
         this.submitting = false;
       }
     },
 
     triggerAvatarUpload() {
+      if (this.uploadingAvatar) return; // 防止重复点击
       this.$refs.avatarInput.click();
     },
 
-    handleAvatarChange(e) {
-
+    /**
+     * 🔥 核心修改：头像上传与更新逻辑
+     */
+    async handleAvatarChange(e) {
       const file = e.target.files[0];
-
       if (!file) return;
 
+      // 1. 校验
       if (file.size > 5 * 1024 * 1024) {
         this.showToast('头像太大啦，不能超过 5MB 哦', 'warning');
         return;
       }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        this.showToast('只支持 JPG, PNG, GIF, WebP 格式', 'warning');
+        return;
+      }
 
-      const reader = new FileReader();
+      // 2. 设置状态
+      this.uploadingAvatar = true;
+      this.showToast('正在上传美照，请稍候... ✨', 'info');
 
-      reader.onload = (e) => {
-        this.formData.avatar = e.target.result;
-        this.currentUserAvatar = e.target.result;
-        this.showToast('头像已选择，记得点保存哦 ✨', 'success');
-      };
+      try {
+        // 3. 上传文件 (bizType 需与后端常量一致，例如 "USER_AVATAR")
+        const uploadRes = await uploadFile(file, 'USER_AVATAR');
 
-      reader.readAsDataURL(file);
+        // 兼容不同后端返回结构，获取 URL
+        // 假设返回结构: { code: 200, data: "http://..." } 或 { code: 200, data: { url: "..." } }
+        let newAvatarUrl = '';
+        if (typeof uploadRes.data === 'string') {
+          newAvatarUrl = uploadRes.data;
+        } else if (uploadRes.data && typeof uploadRes.data === 'object') {
+          newAvatarUrl = uploadRes.data.url || uploadRes.data.fileUrl || uploadRes.data.data;
+        }
+
+        if (!newAvatarUrl) {
+          // 如果直接返回的是 data 字段且是字符串
+          newAvatarUrl = uploadRes.data;
+        }
+
+        // 再次检查，如果还是拿不到，尝试直接取 res.data (有些封装会直接解包)
+        if (!newAvatarUrl && uploadRes.data) {
+          newAvatarUrl = uploadRes.data;
+        }
+
+        if (!newAvatarUrl) {
+          throw new Error('上传成功但未获取到文件地址');
+        }
+
+        // 4. 更新数据库
+        await updateUserAvatar({ avatarUrl: newAvatarUrl });
+
+        // 5. 更新本地 UI
+        this.formData.avatar = newAvatarUrl;
+        this.currentUserAvatar = newAvatarUrl;
+
+        this.showToast('头像换好啦！真好看 🎉', 'success');
+
+      } catch (error) {
+        console.error('头像更新失败:', error);
+        const msg = error.response?.data?.msg || error.message || '上传失败，请重试';
+        this.showToast(msg, 'error');
+      } finally {
+        this.uploadingAvatar = false;
+        e.target.value = ''; // 清空 input，允许重复选择同一张图
+      }
     },
 
     validateForm() {
-
       this.errors = {};
-
       if (!this.formData.username?.trim()) {
         this.errors.username = '昵称不能为空哦';
         return false;
       }
-
       if (this.formData.email && !/^\S+@\S+\.\S+$/.test(this.formData.email)) {
         this.errors.email = '邮箱格式好像不对呢';
         return false;
       }
-
       return true;
     },
 
     async handleSubmit() {
-
       if (!this.validateForm()) {
-
         let errorMsg = '请检查填写的信息哦';
-
         if (this.errors.username) errorMsg = this.errors.username;
         else if (this.errors.email) errorMsg = this.errors.email;
-
         this.showToast(errorMsg, 'warning');
-
         return;
       }
 
       this.saving = true;
-
       try {
-
         const payload = {
           username: this.formData.username.trim(),
           bio: this.formData.bio?.trim() || '',
           email: this.formData.email?.trim() || ''
         };
-
         const res = await updateUserProfile(payload);
-
         if (res.data.code === 200 || res.code === 200) {
-
           this.showToast('保存成功！太棒啦 🚀', 'success');
-
           this.currentUserName = payload.username;
-
         } else {
-
           const errorMsg = res.data.msg || res.msg || '保存失败';
-
           this.showToast(errorMsg, 'error');
         }
-
       } catch (error) {
-
         console.error('❌ 保存失败:', error);
-
         let errMsg = '网络开小差了，再试一次吧';
-
         if (error.response) {
           errMsg = error.response.data.msg || `错误 ${error.response.status}`;
         } else if (error.message) {
           errMsg = error.message;
         }
-
         this.showToast(errMsg, 'error');
-
       } finally {
         this.saving = false;
       }
@@ -695,44 +661,29 @@ export default {
       const map = { 'ADMIN': '管理员', 'USER': '探索者', 'PHOTOGRAPHER': '摄影师', 'CREATOR': '创作者' };
       return map[role] || '探索者';
     },
-
     getRoleIcon(role) {
       const map = { 'ADMIN': '👑', 'USER': '🎒', 'PHOTOGRAPHER': '📷', 'CREATOR': '🎨' };
       return map[role] || '🎒';
     },
-
     getRoleClass(role) {
       if (role === 'ADMIN') return 'role-admin';
       if (role === 'PHOTOGRAPHER' || role === 'CREATOR') return 'role-photographer';
       return 'role-user';
     },
-
     getStatusName(status) {
       return status === 1 ? '状态良好' : '已暂停';
     },
-
     getStatusIcon(status) {
       return status === 1 ? '🟢' : '🔴';
     },
-
     getStatusClass(status) {
       return status === 1 ? 'status-normal' : 'status-disabled';
     },
-
     formatDate(dateStr) {
-
       if (!dateStr) return '-';
-
-      return new Date(dateStr).toLocaleDateString(
-          'zh-CN',
-          {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute:'2-digit'
-          }
-      );
+      return new Date(dateStr).toLocaleDateString('zh-CN', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute:'2-digit'
+      });
     }
   }
 };
@@ -740,7 +691,7 @@ export default {
 
 <style scoped>
 /* ====================
-   🎨 全局：超级淡的薄荷绿主题
+   🎨 全局样式
    ==================== */
 .profile-edit-container {
   min-height: 100vh;
@@ -752,7 +703,6 @@ export default {
   overflow-x: hidden;
 }
 
-/* 背景装饰元素 */
 .profile-edit-container::before {
   content: '🌿';
   position: absolute;
@@ -781,7 +731,7 @@ export default {
   margin: 40px auto;
   padding: 0 20px;
   position: relative;
-  z-index: 1; /* 内容层在背景之上，但在弹窗之下 */
+  z-index: 1;
 }
 
 .glass-panel {
@@ -796,7 +746,7 @@ export default {
 }
 
 /* ====================
-   👤 头部与头像区域
+   👤 头部与头像
    ==================== */
 .identity-header {
   display: flex;
@@ -841,6 +791,7 @@ export default {
   z-index: 2;
 }
 
+/* 原有悬停层 */
 .upload-overlay {
   position: absolute; inset: 0;
   background: rgba(129, 212, 250, 0.8);
@@ -856,6 +807,33 @@ export default {
 .upload-overlay .icon { font-size: 24px; margin-bottom: 4px; transform: scale(1); transition: transform 0.3s; }
 .avatar-upload-box:hover .upload-overlay .icon { transform: scale(1.2); }
 .upload-overlay .text { font-size: 12px; font-weight: 700; }
+
+/* 🔥 新增：上传中遮罩层 */
+.uploading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #4CAF50;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+.uploading-text {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.spinner-icon {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #E8F5E9;
+  border-top-color: #4CAF50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
 .badges-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .badge {
@@ -902,7 +880,7 @@ export default {
 }
 
 /* ====================
-   📝 表单与区块样式
+   📝 表单与区块
    ==================== */
 .section-block { margin-bottom: 35px; }
 .section-header {
@@ -1126,7 +1104,7 @@ export default {
 }
 
 /* ====================
-   🔔 Toast 提示样式
+   🔔 Toast
    ==================== */
 .custom-toast {
   position: fixed;
@@ -1143,7 +1121,7 @@ export default {
   align-items: center;
   gap: 12px;
   box-shadow: 0 10px 30px rgba(46, 125, 50, 0.2);
-  z-index: 10001; /* 比弹窗略高或同级，确保可见 */
+  z-index: 10001;
   border: 2px solid #C8E6C9;
   backdrop-filter: blur(10px);
 }
@@ -1153,22 +1131,22 @@ export default {
 .toast-icon { font-size: 20px; animation: bounce 1s infinite; }
 
 /* ====================
-   🔥 模态框样式 (核心修复区)
+   🔥 模态框
    ==================== */
 .modal-overlay {
-  position: fixed !important; /* 强制固定定位 */
+  position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.45); /* 稍微加深背景以突出弹窗 */
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999 !important; /* 最高层级，盖住所有表单 */
+  z-index: 9999 !important;
 }
 
 .modal-card {
@@ -1176,7 +1154,7 @@ export default {
   max-width: 450px;
   padding: 30px;
   position: relative;
-  z-index: 10000 !important; /* 卡片比遮罩更高 */
+  z-index: 10000 !important;
   background: rgba(255, 255, 255, 0.98);
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
@@ -1188,46 +1166,18 @@ export default {
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
-.modal-header {
-  text-align: center;
-  margin-bottom: 25px;
-}
-.modal-icon {
-  font-size: 40px;
-  display: block;
-  margin-bottom: 10px;
-  animation: float 3s infinite;
-}
-.modal-title {
-  font-size: 20px;
-  color: #2E7D32;
-  margin: 0 0 8px 0;
-  font-weight: 800;
-}
-.modal-subtitle {
-  font-size: 13px;
-  color: #90A4AE;
-  margin: 0;
-}
+.modal-header { text-align: center; margin-bottom: 25px; }
+.modal-icon { font-size: 40px; display: block; margin-bottom: 10px; animation: float 3s infinite; }
+.modal-title { font-size: 20px; color: #2E7D32; margin: 0 0 8px 0; font-weight: 800; }
+.modal-subtitle { font-size: 13px; color: #90A4AE; margin: 0; }
+.modal-body { margin-bottom: 25px; }
 
-.modal-body {
-  margin-bottom: 25px;
-}
+.input-group-code { display: flex; gap: 10px; align-items: center; }
+.input-code { flex: 1; }
 
-/* 验证码输入组布局 */
-.input-group-code {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.input-code {
-  flex: 1; /* 输入框占满剩余空间 */
-}
-
-/* 验证码按钮样式 */
 .btn-code {
   padding: 0 16px;
-  height: 54px; /* 与输入框高度一致 (padding 16+16 + border 2 = 54 approx) */
+  height: 54px;
   background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
   color: #2E7D32;
   border: 1px solid #A5D6A7;
@@ -1244,10 +1194,7 @@ export default {
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(46, 125, 50, 0.2);
 }
-.btn-code:active:not(:disabled) {
-  transform: translateY(0);
-}
-/* 倒计时/禁用状态 */
+.btn-code:active:not(:disabled) { transform: translateY(0); }
 .btn-code:disabled {
   background: #F5F5F5;
   color: #BDBDBD;
@@ -1257,10 +1204,7 @@ export default {
   transform: none;
 }
 
-.modal-footer {
-  text-align: center;
-}
-
+.modal-footer { text-align: center; }
 .btn-submit {
   width: 100%;
   padding: 14px;
@@ -1278,16 +1222,8 @@ export default {
   gap: 8px;
   transition: all 0.3s;
 }
-.btn-submit:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(77, 182, 172, 0.4);
-}
-.btn-submit:disabled {
-  background: #CFD8DC;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
+.btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(77, 182, 172, 0.4); }
+.btn-submit:disabled { background: #CFD8DC; cursor: not-allowed; box-shadow: none; }
 .spinner-small {
   width: 16px; height: 16px;
   border: 2px solid rgba(255,255,255,0.3);
@@ -1296,17 +1232,9 @@ export default {
   animation: spin 0.8s linear infinite;
 }
 
-/* 动画类 */
-.modal-fade-enter-active, .modal-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.modal-fade-enter-from, .modal-fade-leave-to {
-  opacity: 0;
-}
-/* 确保动画期间卡片也有位移效果 */
-.modal-fade-enter-from .modal-card, .modal-fade-leave-to .modal-card {
-  transform: translateY(50px) scale(0.95);
-}
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
+.modal-fade-enter-from .modal-card, .modal-fade-leave-to .modal-card { transform: translateY(50px) scale(0.95); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
@@ -1317,7 +1245,7 @@ export default {
 .toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translate(-50%, 40px); }
 
 /* ====================
-   📱 响应式适配
+   📱 响应式
    ==================== */
 @media (max-width: 600px) {
   .form-grid, .info-grid, .data-tags { grid-template-columns: 1fr; }
@@ -1327,13 +1255,7 @@ export default {
   .section-header { justify-content: center; }
   .action-bar { flex-direction: column-reverse; }
   .glass-panel { padding: 24px 20px; }
-
-  /* 手机端验证码按钮换行堆叠 */
   .input-group-code { flex-direction: column; gap: 8px; }
-  .btn-code {
-    width: 100%;
-    height: 48px;
-    padding: 0;
-  }
+  .btn-code { width: 100%; height: 48px; padding: 0; }
 }
 </style>
