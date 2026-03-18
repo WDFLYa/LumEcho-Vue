@@ -64,3 +64,28 @@ export function completePhone(data) {
 export function sendCompleteCode(data) {
     return request.post('/api/message/complete/sendcode', data)
 }
+
+
+export function followUser(targetId) {
+    return request.post(`/api/userfollow/follow/${targetId}`)
+}
+
+
+export function unfollowUser(targetId) {
+    return request.post(`/api/userfollow/unfollow/${targetId}`)
+}
+
+
+export function getFollowStatus(targetId) {
+    return request.post(`/api/userfollow/isFollowed/${targetId}`)
+}
+
+// 获取用户关注列表
+export function getFollowingList (userId) {
+    return request.get(`/api/userfollow/follow/list/${userId}`)
+}
+
+// 获取用户粉丝列表
+export function getFollowersList(userId) {
+    return request.get(`/api/userfollow/follower/list/${userId}`)
+}

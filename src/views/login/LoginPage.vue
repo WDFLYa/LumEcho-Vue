@@ -166,7 +166,9 @@ export default {
         if(res.data.code === 200){
           this.showToast("登录成功","success")
           const token = res.data.data.token;
+          const role = res.data.data.role;
           localStorage.setItem('user_token', token);
+          localStorage.setItem('user_role', role);
           setTimeout(()=>{ this.$router.push("/home") },1000)
         }else{
           const data = res.data;
@@ -193,7 +195,11 @@ export default {
         if (res.data.code === 200) {
           this.showToast("登录成功，即将跳转主页", "success");
           const token = res.data.data.token;
+          const role = res.data.data.role;
+
           localStorage.setItem('user_token', token);
+          localStorage.setItem('user_role', role);
+
           setTimeout(() => { this.$router.push("/home"); }, 1200);
         } else {
           const errMsg = Object.values(res.data.data || {})[0] || res.data.message || "登录失败";
