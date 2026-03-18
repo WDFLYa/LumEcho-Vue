@@ -4,7 +4,9 @@
     <EditNavBar
         :user-name="currentUserName"
         :user-avatar="currentUserAvatar"
+        :is-photographer="formData.role === 'PHOTOGRAPHER'"
         @profile="goProfile"
+        @application-success="handleAppSuccess"
     />
 
     <main class="edit-wrapper">
@@ -293,11 +295,11 @@
 
 <script>
 import EditNavBar from '@/components/NavBar/EditNavBar.vue';
-// 👇 引入新定义的接口 (确保 auth.js 里有这三个)
+
 import {
+  getCurrentUserInfo,
   getCurrentUserDetail,
   updateUserProfile,
-  getCurrentUserInfo,
   completeAccount,
   completePhone,
   sendCompleteCode
@@ -306,19 +308,21 @@ import {
 export default {
   name: "ProfileEdit",
   components: { EditNavBar },
+
   data() {
     return {
       defaultAvatar: 'http://localhost:9000/specialty/avatar.png',
-      currentUserAvatar: '', // 导航栏用的
-      currentUserName: '',   // 导航栏用的
+
+      currentUserAvatar: '',
+      currentUserName: '',
 
       saving: false,
       toastVisible: false,
       toastMessage: '',
       toastType: 'info',
 
-      // 表单数据 (保持原样)
       formData: {
+        id: null,
         account: '',
         phone: '',
         username: '',
@@ -330,11 +334,11 @@ export default {
         updateTime: null,
         avatar: ''
       },
+
       errors: {},
 
-      // 🔥 新增：补全模态框相关数据
       showCompleteModal: false,
-      missingType: '', // 'account' 或 'phone'
+      missingType: '',
       submitting: false,
       sendingCode: false,
       countdown: 0,
@@ -346,29 +350,70 @@ export default {
         phone: '',
         code: ''
       },
+
       completeErrors: {}
     };
   },
+
   computed: {
     toastIcon() {
       const map = { success: '🎉', error: '😭', info: '💡', warning: '⚠️' };
       return map[this.toastType] || '💡';
     },
-    // 🔥 新增：判断信息是否完整
+
     isInfoComplete() {
       return !!this.formData.account && !!this.formData.phone;
     }
   },
+
   mounted() {
-    // 1. 先加载导航栏需要的简单信息
+
+    // 🔥 获取头像 + 用户名 + id
     this.fetchNavUserInfo();
-    // 2. 加载详情页的完整数据
+
+    // 🔥 获取完整资料
     this.loadUserProfile();
+
   },
+
   beforeUnmount() {
     if (this.countdownTimer) clearInterval(this.countdownTimer);
   },
+
   methods: {
+
+    /**
+     * 获取导航栏信息
+     */
+    async fetchNavUserInfo() {
+
+      try {
+
+        const res = await getCurrentUserInfo();
+
+        const data =
+            res.data.code === 200 ? res.data.data : res.data;
+
+        if (!data) return;
+
+        this.currentUserAvatar = data.avatar || this.defaultAvatar;
+
+        this.currentUserName = data.username || '未知用户';
+
+        this.formData.id = data.id;
+
+        // ⭐ 关键
+        this.formData.avatar = data.avatar || this.defaultAvatar;
+
+      } catch (error) {
+
+        console.error("获取用户信息失败:", error);
+
+        this.currentUserAvatar = this.defaultAvatar;
+        this.currentUserName = '用户';
+      }
+    },
+
     goProfile() {
       if (!this.formData.id) {
         this.showToast('用户 ID 缺失，无法跳转', 'warning');
@@ -384,52 +429,41 @@ export default {
       setTimeout(() => this.toastVisible = false, 2500);
     },
 
-    // 获取导航栏信息
-    async fetchNavUserInfo() {
-      try {
-        const res = await getCurrentUserInfo();
-        const data = res.data.code === 200 ? res.data.data : res.data;
-        if (data) {
-          this.currentUserAvatar = data.avatar || this.defaultAvatar;
-          this.currentUserName = data.username || '未知用户';
-        }
-      } catch (error) {
-        console.error('获取导航栏用户信息失败:', error);
-      }
-    },
-
-    // 加载用户详细资料 (保持原样逻辑)
     async loadUserProfile() {
       try {
-        const res = await getCurrentUserDetail();
-        const responseData = res.data.code === 200 ? res.data.data : res.data;
 
-        if (responseData) {
-          this.formData = {
-            id: responseData.id,
-            account: responseData.account || '',
-            phone: responseData.phone || '',
-            username: responseData.username || '',
-            email: responseData.email || '',
-            bio: responseData.bio || '',
-            role: responseData.role || 'USER',
-            status: responseData.status !== undefined ? responseData.status : 1,
-            createTime: responseData.createTime,
-            updateTime: responseData.updateTime,
-            avatar: responseData.avatar || this.currentUserAvatar || this.defaultAvatar
-          };
-          console.log('✅ 用户资料加载成功:', this.formData);
-        } else {
+        const res = await getCurrentUserDetail();
+
+        const responseData =
+            res.data.code === 200 ? res.data.data : res.data;
+
+        if (!responseData) {
           this.showToast('未获取到用户数据', 'warning');
+          return;
         }
 
+        this.formData = {
+          ...this.formData,
+
+          account: responseData.account || '',
+          phone: responseData.phone || '',
+          username: responseData.username || '',
+          email: responseData.email || '',
+          bio: responseData.bio || '',
+          role: responseData.role || 'USER',
+          status: responseData.status !== undefined ? responseData.status : 1,
+          createTime: responseData.createTime,
+          updateTime: responseData.updateTime
+        };
+
       } catch (error) {
+
         console.error('❌ 加载用户详情失败:', error);
+
         this.showToast('加载数据失败，请刷新重试', 'error');
       }
     },
 
-    // 🔥 新增：打开补全模态框
     openCompleteModal(type) {
       this.missingType = type;
       this.showCompleteModal = true;
@@ -439,21 +473,26 @@ export default {
       this.countdown = 0;
     },
 
-    // 🔥 新增：发送验证码
     async handleSendCode() {
+
       const phoneRegex = /^1[3-9]\d{9}$/;
+
       if (!phoneRegex.test(this.completeForm.phone)) {
         this.completeErrors.phone = '请输入正确的11位手机号';
         return;
       }
+
       this.completeErrors.phone = '';
       this.sendingCode = true;
 
       try {
+
         await sendCompleteCode({ phone: this.completeForm.phone });
+
         this.showToast('验证码已发送，请注意查收 📩', 'success');
 
         this.countdown = 60;
+
         this.countdownTimer = setInterval(() => {
           this.countdown--;
           if (this.countdown <= 0) {
@@ -461,27 +500,35 @@ export default {
             this.countdown = 0;
           }
         }, 1000);
+
       } catch (error) {
+
         const msg = error.response?.data?.msg || '发送失败，请稍后再试';
+
         this.showToast(msg, 'error');
+
         this.completeErrors.phone = msg;
+
       } finally {
         this.sendingCode = false;
       }
     },
 
-    // 🔥 新增：提交补全信息
     async handleCompleteSubmit() {
+
       this.submitting = true;
       this.completeErrors = {};
 
       try {
+
         if (this.missingType === 'account') {
+
           if (!this.completeForm.account || this.completeForm.account.length < 3) {
             this.completeErrors.account = '账号长度至少3位';
             this.submitting = false;
             return;
           }
+
           if (!this.completeForm.password || this.completeForm.password.length < 6) {
             this.completeErrors.password = '密码长度至少6位';
             this.submitting = false;
@@ -494,15 +541,20 @@ export default {
           });
 
           this.showToast('账号设置成功！🎉', 'success');
-          this.formData.account = this.completeForm.account;
 
-        } else if (this.missingType === 'phone') {
+          this.formData.account = this.completeForm.account;
+        }
+
+        else if (this.missingType === 'phone') {
+
           const phoneRegex = /^1[3-9]\d{9}$/;
+
           if (!phoneRegex.test(this.completeForm.phone)) {
             this.completeErrors.phone = '手机号格式不正确';
             this.submitting = false;
             return;
           }
+
           if (!/^\d{6}$/.test(this.completeForm.code)) {
             this.completeErrors.code = '请输入6位验证码';
             this.submitting = false;
@@ -515,66 +567,90 @@ export default {
           });
 
           this.showToast('手机绑定成功！🎉', 'success');
+
           this.formData.phone = this.completeForm.phone;
         }
 
         this.showCompleteModal = false;
 
       } catch (error) {
+
         const msg = error.response?.data?.msg || '操作失败，请重试';
+
         this.showToast(msg, 'error');
+
         if (this.missingType === 'account') {
           this.completeErrors.account = msg;
         } else {
           this.completeErrors.phone = msg;
         }
+
       } finally {
         this.submitting = false;
       }
     },
 
-    triggerAvatarUpload() { this.$refs.avatarInput.click(); },
+    triggerAvatarUpload() {
+      this.$refs.avatarInput.click();
+    },
 
     handleAvatarChange(e) {
+
       const file = e.target.files[0];
+
       if (!file) return;
+
       if (file.size > 5 * 1024 * 1024) {
         this.showToast('头像太大啦，不能超过 5MB 哦', 'warning');
         return;
       }
+
       const reader = new FileReader();
+
       reader.onload = (e) => {
         this.formData.avatar = e.target.result;
+        this.currentUserAvatar = e.target.result;
         this.showToast('头像已选择，记得点保存哦 ✨', 'success');
       };
+
       reader.readAsDataURL(file);
     },
 
     validateForm() {
+
       this.errors = {};
+
       if (!this.formData.username?.trim()) {
         this.errors.username = '昵称不能为空哦';
         return false;
       }
+
       if (this.formData.email && !/^\S+@\S+\.\S+$/.test(this.formData.email)) {
         this.errors.email = '邮箱格式好像不对呢';
         return false;
       }
+
       return true;
     },
 
     async handleSubmit() {
+
       if (!this.validateForm()) {
+
         let errorMsg = '请检查填写的信息哦';
+
         if (this.errors.username) errorMsg = this.errors.username;
         else if (this.errors.email) errorMsg = this.errors.email;
-        else if (this.errors.bio) errorMsg = this.errors.bio;
+
         this.showToast(errorMsg, 'warning');
+
         return;
       }
 
       this.saving = true;
+
       try {
+
         const payload = {
           username: this.formData.username.trim(),
           bio: this.formData.bio?.trim() || '',
@@ -584,21 +660,32 @@ export default {
         const res = await updateUserProfile(payload);
 
         if (res.data.code === 200 || res.code === 200) {
+
           this.showToast('保存成功！太棒啦 🚀', 'success');
+
+          this.currentUserName = payload.username;
+
         } else {
+
           const errorMsg = res.data.msg || res.msg || '保存失败';
+
           this.showToast(errorMsg, 'error');
         }
 
       } catch (error) {
+
         console.error('❌ 保存失败:', error);
+
         let errMsg = '网络开小差了，再试一次吧';
+
         if (error.response) {
           errMsg = error.response.data.msg || `错误 ${error.response.status}`;
         } else if (error.message) {
           errMsg = error.message;
         }
+
         this.showToast(errMsg, 'error');
+
       } finally {
         this.saving = false;
       }
@@ -608,21 +695,44 @@ export default {
       const map = { 'ADMIN': '管理员', 'USER': '探索者', 'PHOTOGRAPHER': '摄影师', 'CREATOR': '创作者' };
       return map[role] || '探索者';
     },
+
     getRoleIcon(role) {
       const map = { 'ADMIN': '👑', 'USER': '🎒', 'PHOTOGRAPHER': '📷', 'CREATOR': '🎨' };
       return map[role] || '🎒';
     },
+
     getRoleClass(role) {
       if (role === 'ADMIN') return 'role-admin';
       if (role === 'PHOTOGRAPHER' || role === 'CREATOR') return 'role-photographer';
       return 'role-user';
     },
-    getStatusName(status) { return status === 1 ? '状态良好' : '已暂停'; },
-    getStatusIcon(status) { return status === 1 ? '🟢' : '🔴'; },
-    getStatusClass(status) { return status === 1 ? 'status-normal' : 'status-disabled'; },
+
+    getStatusName(status) {
+      return status === 1 ? '状态良好' : '已暂停';
+    },
+
+    getStatusIcon(status) {
+      return status === 1 ? '🟢' : '🔴';
+    },
+
+    getStatusClass(status) {
+      return status === 1 ? 'status-normal' : 'status-disabled';
+    },
+
     formatDate(dateStr) {
+
       if (!dateStr) return '-';
-      return new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+
+      return new Date(dateStr).toLocaleDateString(
+          'zh-CN',
+          {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute:'2-digit'
+          }
+      );
     }
   }
 };
