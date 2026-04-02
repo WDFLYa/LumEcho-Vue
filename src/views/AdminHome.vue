@@ -5,183 +5,223 @@
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
         @search="handleSearch"
-        @profile="goProfile"
-        @refresh="fetchStats"
     />
 
     <main class="content-wrapper">
-      <!-- 2. 顶部欢迎与时间 -->
+      <!-- 2. 顶部欢迎与操作 -->
       <header class="page-header">
         <div class="welcome-text">
-          <h1>👋 早安, {{ currentUserName }}</h1>
-          <p>这里是 Lumecho 摄影平台管理中心，今日有 <span class="highlight">{{ pendingCount }}</span> 条待办事项。</p>
+          <h1>📸 摄影师审核中心</h1>
+          <p>管理 Lumecho 平台摄影师资质，当前有 <span class="highlight">{{ pendingCount }}</span> 个待处理申请。</p>
         </div>
         <div class="date-badge">
           📅 {{ currentDate }}
         </div>
       </header>
 
-      <!-- 3. 核心数据概览 (Key Metrics) -->
-      <section class="stats-grid">
-        <div
-            class="stat-card"
-            v-for="(stat, index) in statsData"
-            :key="index"
-            :style="{ borderLeftColor: stat.color }"
-        >
-          <div class="stat-icon" :style="{ background: stat.bgColor }">
-            {{ stat.icon }}
+      <!-- 3. 筛选与统计 (模仿 Stats Grid) -->
+      <section class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = null">
+          <div class="stat-icon" style="background: #E3F2FD;">
+            📊
           </div>
           <div class="stat-info">
-            <span class="stat-label">{{ stat.label }}</span>
-            <span class="stat-value">{{ stat.value }}</span>
-            <span class="stat-trend" :class="stat.trend > 0 ? 'up' : 'down'">
-              {{ stat.trend > 0 ? '↑' : '↓' }} {{ Math.abs(stat.trend) }}%
-            </span>
+            <span class="stat-label">全部申请</span>
+            <span class="stat-value">{{ stats.all }}</span>
+          </div>
+        </div>
+        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 0">
+          <div class="stat-icon" style="background: #FFF3E0;">
+            ⏳
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">待处理</span>
+            <span class="stat-value">{{ stats.pending }}</span>
+            <span class="stat-trend down" v-if="stats.trend < 0">↓ {{ Math.abs(stats.trend) }}%</span>
+          </div>
+        </div>
+        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 1">
+          <div class="stat-icon" style="background: #F3E5F5;">
+            ✅
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">已通过</span>
+            <span class="stat-value">{{ stats.approved }}</span>
+          </div>
+        </div>
+        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 2">
+          <div class="stat-icon" style="background: #FFEBEE;">
+            ❌
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">已拒绝</span>
+            <span class="stat-value">{{ stats.rejected }}</span>
           </div>
         </div>
       </section>
 
-      <!-- 4. 功能模块入口 (Function Modules) -->
+      <!-- 4. 审核列表 (模仿 Modules Grid 风格) -->
       <section class="modules-section">
-        <h2 class="section-title">⚡ 快捷管理</h2>
-        <div class="modules-grid">
-          <div
-              class="module-card"
-              v-for="mod in modules"
-              :key="mod.id"
-              @click="navigateTo(mod.path)"
-          >
-            <div class="module-icon-wrapper" :style="{ background: mod.gradient }">
-              <span class="module-icon">{{ mod.icon }}</span>
-            </div>
-            <div class="module-content">
-              <h3>{{ mod.name }}</h3>
-              <p>{{ mod.desc }}</p>
-            </div>
-            <div class="module-arrow">➜</div>
+        <h2 class="section-title">📋 待审核列表</h2>
+
+        <!-- 列表为空 -->
+        <div v-if="loading" class="module-card" style="justify-content: center; opacity: 0.6;">
+          <span>🚀</span>
+          <div class="module-content">
+            <h3>加载中...</h3>
+            <p>正在获取最新的摄影师申请</p>
+          </div>
+        </div>
+
+        <div v-else-if="filteredApplications.length === 0" class="module-card" style="justify-content: center; opacity: 0.6;">
+          <span>🎉</span>
+          <div class="module-content">
+            <h3>暂无数据</h3>
+            <p>当前没有符合筛选条件的申请</p>
+          </div>
+        </div>
+
+        <!-- 审核卡片列表 -->
+        <div
+            v-for="app in filteredApplications"
+            :key="app.id"
+            class="module-card"
+            style="flex-direction: row; padding: 25px;"
+        >
+          <!-- 左侧信息 -->
+          <div class="module-icon-wrapper" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); width: 60px; height: 60px;">
+            {{ app.realName?.charAt(0) || 'P' }}
+          </div>
+
+          <div class="module-content" style="flex: 1; margin-right: 20px;">
+            <h3>{{ app.realName || '匿名用户' }}</h3>
+            <p style="margin: 5px 0; color: #555;">账号: {{ app.account }} | 手机: {{ app.phone }}</p>
+            <p style="margin: 5px 0; color: #666; font-size: 13px;">
+              <el-tag :type="app.status === 0 ? 'warning' : app.status === 1 ? 'success' : 'danger'" size="small">
+                {{ getStatusText(app.status) }}
+              </el-tag>
+              提交于: {{ formatDate(app.createTime) }}
+            </p>
+          </div>
+
+          <!-- 右侧操作 -->
+          <div v-if="app.status === 0" class="action-group" style="display: flex; gap: 10px; align-items: center;">
+            <button class="action-btn-small" @click.stop="handleReview(app.id, 1)" style="background: #C8E6C9; color: #2E7D32;">
+              通过
+            </button>
+            <button class="action-btn-small" @click.stop="openRejectDialog(app.id)" style="background: #FFCDD2; color: #C62828;">
+              拒绝
+            </button>
+          </div>
+          <div v-else class="reason-box" style="color: #777; font-size: 13px;">
+            {{ app.status === 1 ? '已通过' : '已拒绝' }}
           </div>
         </div>
       </section>
-
-      <!-- 5. 数据分析与待办 (Split View) -->
-      <div class="dashboard-split">
-
-        <!-- 左侧：可视化分析预览 -->
-        <div class="panel chart-panel">
-          <div class="panel-header">
-            <h3>📊 流量趋势分析</h3>
-            <button class="view-all-btn" @click="navigateTo('/admin/analysis')">查看详情</button>
-          </div>
-          <div class="chart-placeholder">
-            <!-- 纯CSS模拟柱状图，实际项目中请替换为 ECharts -->
-            <div class="mock-chart">
-              <div class="bar" style="height: 40%" title="周一"></div>
-              <div class="bar" style="height: 70%" title="周二"></div>
-              <div class="bar" style="height: 50%" title="周三"></div>
-              <div class="bar" style="height: 90%" title="周四"></div>
-              <div class="bar" style="height: 60%" title="周五"></div>
-              <div class="bar" style="height: 85%" title="周六"></div>
-              <div class="bar" style="height: 75%" title="周日"></div>
-            </div>
-            <p class="chart-tip">本周访问量较上周增长 12%</p>
-          </div>
-        </div>
-
-        <!-- 右侧：最新动态/待办 -->
-        <div class="panel todo-panel">
-          <div class="panel-header">
-            <h3>🔔 待处理事项</h3>
-          </div>
-          <ul class="todo-list">
-            <li class="todo-item" v-for="todo in recentTodos" :key="todo.id">
-              <div class="todo-left">
-                <span class="todo-dot" :class="todo.type"></span>
-                <div class="todo-text">
-                  <strong>{{ todo.title }}</strong>
-                  <span>{{ todo.time }}</span>
-                </div>
-              </div>
-              <button class="action-btn-small" @click="navigateTo(todo.link)">处理</button>
-            </li>
-          </ul>
-        </div>
-      </div>
-
     </main>
   </div>
 </template>
 
 <script>
-// 请确保路径正确，如果刚才新建了 AdminNavBar.vue
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
+import { getPhotographerList, reviewPhotographer } from "@/api/photographer";
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
-  name: "AdminDashboard",
+  name: "UniformAdminReview",
   components: { AdminNavBar },
   data() {
     return {
       currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: 'Admin',
-      // 动态日期
-      currentDate: new Date().toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-
-      // 统计数据
-      pendingCount: 12,
-      statsData: [
-        { label: '待审核摄影师', value: '8', trend: 2, icon: '📸', color: '#FF9800', bgColor: '#FFF3E0' },
-        { label: '今日新增预约', value: '24', trend: 15, icon: '📅', color: '#2196F3', bgColor: '#E3F2FD' },
-        { label: '进行中活动', value: '3', trend: 0, icon: '🎉', color: '#9C27B0', bgColor: '#F3E5F5' },
-        { label: '未读咨询', value: '5', trend: -5, icon: '💬', color: '#F44336', bgColor: '#FFEBEE' },
-      ],
-
-      // 8大功能模块配置
-      modules: [
-        { id: 1, name: '用户管理', desc: '会员列表、封禁管理', icon: '👥', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', path: '/admin/users' },
-        { id: 2, name: '摄影师认证', desc: '资质审核、等级调整', icon: '🎖️', gradient: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', path: '/admin/photographers' },
-        { id: 3, name: '预约管理', desc: '订单查看、状态调度', icon: '🗓️', gradient: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', path: '/admin/bookings' },
-        { id: 4, name: '活动易管理', desc: '线上活动发布与配置', icon: '🎈', gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)', path: '/admin/activities' },
-        { id: 5, name: '比赛管理', desc: '赛事流程、作品评审', icon: '🏆', gradient: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)', path: '/admin/contests' },
-        { id: 6, name: '咨询管理', desc: '客服消息、反馈处理', icon: '📨', gradient: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', path: '/admin/messages' },
-        { id: 7, name: '视频管理', desc: '教程审核、首页推荐', icon: '🎬', gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', path: '/admin/videos' },
-        { id: 8, name: '可视化分析', desc: '全平台数据大屏', icon: '📈', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', path: '/admin/analysis' },
-      ],
-
-      // 模拟待办数据
-      recentTodos: [
-        { id: 1, title: '用户 "PhotoMaster" 申请认证', time: '10分钟前', type: 'warning', link: '/admin/photographers' },
-        { id: 2, title: '活动 "秋日扫街" 报名异常', time: '1小时前', type: 'danger', link: '/admin/activities' },
-        { id: 3, title: '新上传视频待审核 (ID: 992)', time: '2小时前', type: 'info', link: '/admin/videos' },
-        { id: 4, title: '系统周报已生成', time: '昨天', type: 'success', link: '/admin/analysis' },
-      ]
+      currentDate: new Date().toLocaleDateString('zh-CN', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      }),
+      loading: false,
+      filterStatus: 0, // 默认只看待处理
+      applicationList: [],
+      // 模拟统计数据
+      stats: {
+        all: 0,
+        pending: 8,
+        approved: 120,
+        rejected: 15,
+        trend: -2
+      }
     };
   },
+  computed: {
+    pendingCount() {
+      return this.applicationList.filter(app => app.status === 0).length;
+    },
+    filteredApplications() {
+      return this.applicationList.filter(app => {
+        return this.filterStatus === null || app.status === this.filterStatus;
+      });
+    }
+  },
+  mounted() {
+    this.fetchApplications();
+  },
   methods: {
-    goProfile() {
-      this.$router.push("/admin/profile");
-    },
     handleSearch(query) {
-      console.log("Admin search:", query);
-      // 这里可以跳转到全局搜索结果页
+      console.log("Search:", query);
     },
-    navigateTo(path) {
-      // 防止重复点击同一路由报错
-      this.$router.push(path).catch(err => err);
+    async fetchApplications() {
+      this.loading = true;
+      try {
+        const res = await getPhotographerList();
+        if (res.data && res.data.code === 200) {
+          this.applicationList = res.data.data || [];
+          // 更新统计数据
+          const list = this.applicationList;
+          this.stats.all = list.length;
+          this.stats.pending = list.filter(i => i.status === 0).length;
+          this.stats.approved = list.filter(i => i.status === 1).length;
+          this.stats.rejected = list.filter(i => i.status === 2).length;
+        }
+      } catch (error) {
+        ElMessage.error('数据加载失败');
+      } finally {
+        this.loading = false;
+      }
     },
-    fetchStats() {
-      console.log("刷新数据...");
-      // 这里调用 API 刷新 statsData
+    openRejectDialog(id) {
+      ElMessageBox.prompt('请输入拒绝理由', '拒绝申请', {
+        inputPlaceholder: '请输入拒绝原因',
+        inputPattern: /.{5,}/,
+        inputErrorMessage: '理由至少5个字',
+        type: 'warning'
+      }).then(({ value }) => {
+        this.submitReview(id, 2, value);
+      }).catch(() => {
+        // 用户取消
+      });
+    },
+    async submitReview(id, status, reason = null) {
+      try {
+        await reviewPhotographer(id, status, reason);
+        ElMessage.success(status === 1 ? '审核通过' : '已拒绝');
+        this.fetchApplications(); // 刷新列表
+      } catch (error) {
+        ElMessage.error('操作失败');
+      }
+    },
+    getStatusText(status) {
+      return { 0: '待审核', 1: '已通过', 2: '已拒绝' }[status] || '未知';
+    },
+    formatDate(dateStr) {
+      return dateStr ? new Date(dateStr).toLocaleString() : '—';
     }
   }
 };
 </script>
 
 <style scoped>
-/* --- 基础继承 --- */
+/* --- 基础继承 (完全复刻 Dashboard) --- */
 .admin-container {
   min-height: 100vh;
-  background-color: #F7FAFC;
-  /* 保持原有的背景纹理，但颜色更淡一点，显得更干净 */
+  background-color: #F7FAFC; /* 淡雅背景 */
   background-image: radial-gradient(#E3F2FD 1px, transparent 1px);
   background-size: 24px 24px;
   font-family: 'Nunito', 'Segoe UI', sans-serif;
@@ -189,12 +229,12 @@ export default {
 }
 
 .content-wrapper {
-  max-width: 1400px; /* 比前台更宽一点，适合表格和图表 */
+  max-width: 1400px;
   margin: 0 auto;
   padding: 30px 40px;
 }
 
-/* --- 头部 --- */
+/* --- 头部 (完全复刻) --- */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -231,7 +271,7 @@ export default {
   border: 1px solid #E1F5FE;
 }
 
-/* --- 统计卡片 Stats Grid --- */
+/* --- 统计卡片 (完全复刻) --- */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -249,7 +289,6 @@ export default {
   border: 1px solid #F0F4F8;
   box-shadow: 0 10px 20px rgba(100, 181, 246, 0.05);
   transition: transform 0.3s ease;
-  border-left: 5px solid transparent; /* 动态颜色 */
 }
 
 .stat-card:hover {
@@ -288,10 +327,16 @@ export default {
   font-size: 12px;
   font-weight: 700;
 }
-.stat-trend.up { color: #4CAF50; }
-.stat-trend.down { color: #F44336; }
 
-/* --- 模块网格 Modules Grid --- */
+.stat-trend.up {
+  color: #4CAF50;
+}
+
+.stat-trend.down {
+  color: #F44336;
+}
+
+/* --- 模块网格 (完全复刻) --- */
 .section-title {
   font-size: 20px;
   font-weight: 800;
@@ -302,11 +347,14 @@ export default {
   gap: 10px;
 }
 
-.modules-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+.modules-section {
   margin-bottom: 40px;
+}
+
+.modules-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .module-card {
@@ -325,7 +373,7 @@ export default {
 }
 
 .module-card:hover {
-  transform: translateY(-5px) scale(1.02);
+  transform: translateY(-5px) scale(1.01);
   box-shadow: 0 15px 30px rgba(129, 212, 250, 0.2);
   border-color: #B3E5FC;
 }
@@ -355,150 +403,7 @@ export default {
   margin: 0;
 }
 
-.module-arrow {
-  margin-left: auto;
-  color: #CFD8DC;
-  font-weight: 900;
-  transition: all 0.3s;
-  opacity: 0;
-  transform: translateX(-10px);
-}
-
-.module-card:hover .module-arrow {
-  opacity: 1;
-  transform: translateX(0);
-  color: #81D4FA;
-}
-
-/* --- 分割视图 Split View --- */
-.dashboard-split {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 25px;
-}
-
-.panel {
-  background: #FFFFFF;
-  border-radius: 24px;
-  padding: 25px;
-  border: 1px solid #F0F4F8;
-  box-shadow: 0 10px 20px rgba(100, 181, 246, 0.05);
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.panel-header h3 {
-  font-size: 18px;
-  font-weight: 800;
-  color: #37474F;
-  margin: 0;
-}
-
-.view-all-btn {
-  background: transparent;
-  border: none;
-  color: #0277BD;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-/* 模拟图表 */
-.chart-placeholder {
-  flex: 1;
-  background: #FAFCFE;
-  border-radius: 16px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  min-height: 250px;
-}
-
-.mock-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 15px;
-  height: 150px;
-  width: 100%;
-  justify-content: space-around;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #ECEFF1;
-}
-
-.bar {
-  width: 12%;
-  background: linear-gradient(to top, #81D4FA, #4FC3F7);
-  border-radius: 8px 8px 0 0;
-  transition: height 1s ease;
-  opacity: 0.8;
-}
-.bar:hover { opacity: 1; transform: scaleY(1.05); }
-
-.chart-tip {
-  margin-top: 15px;
-  font-size: 13px;
-  color: #78909C;
-  font-weight: 600;
-}
-
-/* 待办列表 */
-.todo-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.todo-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #F0F4F8;
-}
-
-.todo-item:last-child { border-bottom: none; }
-
-.todo-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.todo-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-.todo-dot.warning { background: #FF9800; box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1); }
-.todo-dot.danger { background: #F44336; box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1); }
-.todo-dot.info { background: #2196F3; box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1); }
-.todo-dot.success { background: #4CAF50; box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1); }
-
-.todo-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.todo-text strong {
-  font-size: 14px;
-  color: #455A64;
-}
-
-.todo-text span {
-  font-size: 11px;
-  color: #B0BEC5;
-  margin-top: 2px;
-}
-
+/* --- 通用按钮样式 --- */
 .action-btn-small {
   background: #E1F5FE;
   color: #0277BD;
@@ -509,6 +414,8 @@ export default {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
+  border: 0;
+  outline: 0;
 }
 
 .action-btn-small:hover {
@@ -516,16 +423,10 @@ export default {
   transform: scale(1.05);
 }
 
-/* 移动端适配 */
+/* --- 响应式 --- */
 @media (max-width: 900px) {
-  .dashboard-split {
-    grid-template-columns: 1fr;
-  }
   .content-wrapper {
     padding: 20px;
-  }
-  .modules-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

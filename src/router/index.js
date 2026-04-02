@@ -12,6 +12,7 @@ import ActivityList from '@/views/ActivityList.vue'
 import ChallengeDetail from '@/views/ChallengeDetail.vue'
 import AdminHome from '@/views/AdminHome.vue'
 import AdminUserManage from '@/views/AdminUserManage.vue'
+import PhotographerReview from '@/views/PhotographerReview.vue'
 const routes = [
     {
         path: '/',
@@ -77,6 +78,13 @@ const routes = [
         name: 'AdminUsers',
         component: AdminUserManage,
         meta: { requiresAuth: true, role: 'admin' } // 需要登录且是管理员
+    },
+
+    {
+        path: '/admin/photographers',
+        name: 'AdminPhotographer',
+        component: PhotographerReview,
+        meta: { requiresAuth: true, role: 'admin' }
     },
 ]
 
