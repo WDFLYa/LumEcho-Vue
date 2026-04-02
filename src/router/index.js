@@ -10,6 +10,8 @@ import ProfileEdit from '@/views/ProfileEdit.vue'
 import ChallengeList from '@/views/ChallengeList.vue'
 import ActivityList from '@/views/ActivityList.vue'
 import ChallengeDetail from '@/views/ChallengeDetail.vue'
+import AdminHome from '@/views/AdminHome.vue'
+import AdminUserManage from '@/views/AdminUserManage.vue'
 const routes = [
     {
         path: '/',
@@ -61,6 +63,20 @@ const routes = [
         path: '/challenge/:id',
         name: 'ChallengeDetail',
         component: ChallengeDetail,
+    },
+
+    {
+        path: '/admin',
+        name: 'AdminHome',
+        component: AdminHome,
+        meta: { requiresAuth: true, role: 'admin' }
+    },
+
+    {
+        path: '/admin/users',
+        name: 'AdminUsers',
+        component: AdminUserManage,
+        meta: { requiresAuth: true, role: 'admin' } // 需要登录且是管理员
     },
 ]
 

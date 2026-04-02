@@ -89,3 +89,13 @@ export function getFollowingList (userId) {
 export function getFollowersList(userId) {
     return request.get(`/api/userfollow/follower/list/${userId}`)
 }
+
+
+
+export function getUserList(params) {
+    return request.get("/api/user/list", { params });
+}
+
+export function updateUserStatus(account, status) {
+    return request.put(`/api/user/status/${account}`, { status });
+}
