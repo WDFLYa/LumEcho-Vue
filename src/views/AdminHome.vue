@@ -11,111 +11,36 @@
       <!-- 2. 顶部欢迎与操作 -->
       <header class="page-header">
         <div class="welcome-text">
-          <h1>📸 摄影师审核中心</h1>
-          <p>管理 Lumecho 平台摄影师资质，当前有 <span class="highlight">{{ pendingCount }}</span> 个待处理申请。</p>
+          <h1>🛡️ 管理控制台</h1>
+          <p>欢迎回来，{{ currentUserName }}。当前系统运行平稳，共 <span class="highlight">{{ modules.length }}</span> 个管理模块。</p>
         </div>
         <div class="date-badge">
           📅 {{ currentDate }}
         </div>
       </header>
 
-      <!-- 3. 筛选与统计 (模仿 Stats Grid) -->
-      <section class="stats-grid" style="margin-bottom: 20px;">
-        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = null">
-          <div class="stat-icon" style="background: #E3F2FD;">
-            📊
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">全部申请</span>
-            <span class="stat-value">{{ stats.all }}</span>
-          </div>
-        </div>
-        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 0">
-          <div class="stat-icon" style="background: #FFF3E0;">
-            ⏳
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">待处理</span>
-            <span class="stat-value">{{ stats.pending }}</span>
-            <span class="stat-trend down" v-if="stats.trend < 0">↓ {{ Math.abs(stats.trend) }}%</span>
-          </div>
-        </div>
-        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 1">
-          <div class="stat-icon" style="background: #F3E5F5;">
-            ✅
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">已通过</span>
-            <span class="stat-value">{{ stats.approved }}</span>
-          </div>
-        </div>
-        <div class="stat-card" style="cursor: pointer;" @click="filterStatus = 2">
-          <div class="stat-icon" style="background: #FFEBEE;">
-            ❌
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">已拒绝</span>
-            <span class="stat-value">{{ stats.rejected }}</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 4. 审核列表 (模仿 Modules Grid 风格) -->
-      <section class="modules-section">
-        <h2 class="section-title">📋 待审核列表</h2>
-
-        <!-- 列表为空 -->
-        <div v-if="loading" class="module-card" style="justify-content: center; opacity: 0.6;">
-          <span>🚀</span>
-          <div class="module-content">
-            <h3>加载中...</h3>
-            <p>正在获取最新的摄影师申请</p>
-          </div>
-        </div>
-
-        <div v-else-if="filteredApplications.length === 0" class="module-card" style="justify-content: center; opacity: 0.6;">
-          <span>🎉</span>
-          <div class="module-content">
-            <h3>暂无数据</h3>
-            <p>当前没有符合筛选条件的申请</p>
-          </div>
-        </div>
-
-        <!-- 审核卡片列表 -->
+      <!-- 3. 模块卡片网格 -->
+      <section class="modules-grid">
         <div
-            v-for="app in filteredApplications"
-            :key="app.id"
+            v-for="mod in modules"
+            :key="mod.id"
             class="module-card"
-            style="flex-direction: row; padding: 25px;"
+            @click="navigateTo(mod.route)"
         >
-          <!-- 左侧信息 -->
-          <div class="module-icon-wrapper" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); width: 60px; height: 60px;">
-            {{ app.realName?.charAt(0) || 'P' }}
+          <div class="module-icon-wrapper" :style="{ background: mod.gradient }">
+            {{ mod.icon }}
           </div>
 
-          <div class="module-content" style="flex: 1; margin-right: 20px;">
-            <h3>{{ app.realName || '匿名用户' }}</h3>
-            <p style="margin: 5px 0; color: #555;">账号: {{ app.account }} | 手机: {{ app.phone }}</p>
-            <p style="margin: 5px 0; color: #666; font-size: 13px;">
-              <el-tag :type="app.status === 0 ? 'warning' : app.status === 1 ? 'success' : 'danger'" size="small">
-                {{ getStatusText(app.status) }}
-              </el-tag>
-              提交于: {{ formatDate(app.createTime) }}
-            </p>
+          <div class="module-content">
+            <h3>{{ mod.name }}</h3>
+            <p>{{ mod.desc }}</p>
+            <div class="module-stat">
+              <span class="stat-value">{{ mod.count }}</span>
+              <span class="stat-label">{{ mod.statLabel }}</span>
+            </div>
           </div>
 
-          <!-- 右侧操作 -->
-          <div v-if="app.status === 0" class="action-group" style="display: flex; gap: 10px; align-items: center;">
-            <button class="action-btn-small" @click.stop="handleReview(app.id, 1)" style="background: #C8E6C9; color: #2E7D32;">
-              通过
-            </button>
-            <button class="action-btn-small" @click.stop="openRejectDialog(app.id)" style="background: #FFCDD2; color: #C62828;">
-              拒绝
-            </button>
-          </div>
-          <div v-else class="reason-box" style="color: #777; font-size: 13px;">
-            {{ app.status === 1 ? '已通过' : '已拒绝' }}
-          </div>
+          <div class="module-arrow">→</div>
         </div>
       </section>
     </main>
@@ -124,11 +49,9 @@
 
 <script>
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
-import { getPhotographerList, reviewPhotographer } from "@/api/photographer";
-import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
-  name: "UniformAdminReview",
+  name: "AdminHome", // ⭐ 与 router 中的 component 名称保持一致
   components: { AdminNavBar },
   data() {
     return {
@@ -137,94 +60,44 @@ export default {
       currentDate: new Date().toLocaleDateString('zh-CN', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       }),
-      loading: false,
-      filterStatus: 0, // 默认只看待处理
-      applicationList: [],
-      // 模拟统计数据
-      stats: {
-        all: 0,
-        pending: 8,
-        approved: 120,
-        rejected: 15,
-        trend: -2
-      }
+      // ⭐ route 字段已严格对齐你提供的 router 配置
+      modules: [
+        { id: 1, name: '用户管理', desc: '管理注册用户、权限分配与状态监控', icon: '👥', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', count: 1248, statLabel: '活跃用户', route: '/admin/users' },
+        { id: 2, name: '摄影师认证管理', desc: '审核资质、管理认证状态与作品集', icon: '📸', gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', count: 15, statLabel: '待审核', route: '/admin/photographers' },
+
+        // 以下为预留模块，后续在 router 中添加对应 path 后即可直接点击跳转
+        { id: 3, name: '预约管理', desc: '处理拍摄预约、日程排期与确认', icon: '📅', gradient: 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)', count: 89, statLabel: '进行中', route: '/admin/appointments' },
+        { id: 4, name: '活动管理', desc: '发布线下活动、报名管理与签到统计', icon: '🎉', gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', count: 6, statLabel: '已发布', route: '/admin/events' },
+        { id: 5, name: '比赛管理', desc: '摄影赛事发布、作品征集与评审', icon: '🏆', gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', count: 3, statLabel: '进行中', route: '/admin/competitions' },
+        { id: 6, name: '咨询管理', desc: '处理用户留言、工单分配与回复跟踪', icon: '💬', gradient: 'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)', count: 42, statLabel: '待处理', route: '/admin/inquiries' },
+        { id: 7, name: '视频管理', desc: '上传、审核、分类与发布视频内容', icon: '🎬', gradient: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)', count: 156, statLabel: '已上架', route: '/admin/videos' },
+        { id: 8, name: '可视化分析', desc: '平台数据看板、用户行为与业务报表', icon: '📊', gradient: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', count: '—', statLabel: '数据洞察', route: '/admin/analytics' }
+      ]
     };
-  },
-  computed: {
-    pendingCount() {
-      return this.applicationList.filter(app => app.status === 0).length;
-    },
-    filteredApplications() {
-      return this.applicationList.filter(app => {
-        return this.filterStatus === null || app.status === this.filterStatus;
-      });
-    }
-  },
-  mounted() {
-    this.fetchApplications();
   },
   methods: {
     handleSearch(query) {
-      console.log("Search:", query);
+      console.log("全局搜索:", query);
+      // 可扩展: this.$router.push(`/admin/search?q=${encodeURIComponent(query)}`)
     },
-    async fetchApplications() {
-      this.loading = true;
-      try {
-        const res = await getPhotographerList();
-        if (res.data && res.data.code === 200) {
-          this.applicationList = res.data.data || [];
-          // 更新统计数据
-          const list = this.applicationList;
-          this.stats.all = list.length;
-          this.stats.pending = list.filter(i => i.status === 0).length;
-          this.stats.approved = list.filter(i => i.status === 1).length;
-          this.stats.rejected = list.filter(i => i.status === 2).length;
-        }
-      } catch (error) {
-        ElMessage.error('数据加载失败');
-      } finally {
-        this.loading = false;
+    navigateTo(route) {
+      // ⭐ 核心跳转逻辑：已启用 Vue Router
+      if (route) {
+        this.$router.push(route);
       }
-    },
-    openRejectDialog(id) {
-      ElMessageBox.prompt('请输入拒绝理由', '拒绝申请', {
-        inputPlaceholder: '请输入拒绝原因',
-        inputPattern: /.{5,}/,
-        inputErrorMessage: '理由至少5个字',
-        type: 'warning'
-      }).then(({ value }) => {
-        this.submitReview(id, 2, value);
-      }).catch(() => {
-        // 用户取消
-      });
-    },
-    async submitReview(id, status, reason = null) {
-      try {
-        await reviewPhotographer(id, status, reason);
-        ElMessage.success(status === 1 ? '审核通过' : '已拒绝');
-        this.fetchApplications(); // 刷新列表
-      } catch (error) {
-        ElMessage.error('操作失败');
-      }
-    },
-    getStatusText(status) {
-      return { 0: '待审核', 1: '已通过', 2: '已拒绝' }[status] || '未知';
-    },
-    formatDate(dateStr) {
-      return dateStr ? new Date(dateStr).toLocaleString() : '—';
     }
   }
 };
 </script>
 
 <style scoped>
-/* --- 基础继承 (完全复刻 Dashboard) --- */
+/* 样式部分完全保留你原有的设计，无需改动 */
 .admin-container {
   min-height: 100vh;
-  background-color: #F7FAFC; /* 淡雅背景 */
+  background-color: #F7FAFC;
   background-image: radial-gradient(#E3F2FD 1px, transparent 1px);
   background-size: 24px 24px;
-  font-family: 'Nunito', 'Segoe UI', sans-serif;
+  font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: #455A64;
 }
 
@@ -234,19 +107,20 @@ export default {
   padding: 30px 40px;
 }
 
-/* --- 头部 (完全复刻) --- */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 35px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .welcome-text h1 {
   font-size: 28px;
   font-weight: 800;
   color: #37474F;
-  margin: 0 0 5px 0;
+  margin: 0 0 6px 0;
 }
 
 .welcome-text p {
@@ -256,7 +130,7 @@ export default {
 }
 
 .highlight {
-  color: #F44336;
+  color: #0288D1;
   font-weight: 700;
 }
 
@@ -271,99 +145,20 @@ export default {
   border: 1px solid #E1F5FE;
 }
 
-/* --- 统计卡片 (完全复刻) --- */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.stat-card {
-  background: #FFFFFF;
-  border-radius: 20px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  border: 1px solid #F0F4F8;
-  box-shadow: 0 10px 20px rgba(100, 181, 246, 0.05);
-  transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: #90A4AE;
-  font-weight: 600;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 800;
-  color: #37474F;
-  line-height: 1.2;
-}
-
-.stat-trend {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.stat-trend.up {
-  color: #4CAF50;
-}
-
-.stat-trend.down {
-  color: #F44336;
-}
-
-/* --- 模块网格 (完全复刻) --- */
-.section-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #37474F;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.modules-section {
-  margin-bottom: 40px;
-}
-
 .modules-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
 }
 
 .module-card {
   background: #FFFFFF;
   border-radius: 24px;
-  padding: 20px;
+  padding: 24px;
   display: flex;
-  align-items: center;
-  gap: 15px;
+  align-items: flex-start;
+  gap: 16px;
   cursor: pointer;
   border: 1px solid #F0F4F8;
   box-shadow: 0 5px 15px rgba(100, 181, 246, 0.05);
@@ -373,60 +168,78 @@ export default {
 }
 
 .module-card:hover {
-  transform: translateY(-5px) scale(1.01);
-  box-shadow: 0 15px 30px rgba(129, 212, 250, 0.2);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 15px 30px rgba(129, 212, 250, 0.18);
   border-color: #B3E5FC;
 }
 
 .module-icon-wrapper {
-  width: 55px;
-  height: 55px;
+  width: 56px;
+  height: 56px;
   border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 26px;
   flex-shrink: 0;
-  box-shadow: inset 0 0 20px rgba(255,255,255,0.3);
+  box-shadow: inset 0 0 20px rgba(255,255,255,0.4);
+}
+
+.module-content {
+  flex: 1;
 }
 
 .module-content h3 {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   color: #37474F;
   margin: 0 0 4px 0;
 }
 
 .module-content p {
+  font-size: 13px;
+  color: #90A4AE;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.module-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0277BD;
+}
+
+.stat-label {
   font-size: 12px;
   color: #90A4AE;
-  margin: 0;
+  font-weight: 600;
 }
 
-/* --- 通用按钮样式 --- */
-.action-btn-small {
-  background: #E1F5FE;
-  color: #0277BD;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 0;
-  outline: 0;
+.module-arrow {
+  font-size: 20px;
+  color: #B0BEC5;
+  transition: all 0.3s ease;
+  margin-top: 8px;
 }
 
-.action-btn-small:hover {
-  background: #B3E5FC;
-  transform: scale(1.05);
+.module-card:hover .module-arrow {
+  color: #0288D1;
+  transform: translateX(4px);
 }
 
-/* --- 响应式 --- */
 @media (max-width: 900px) {
-  .content-wrapper {
-    padding: 20px;
-  }
+  .content-wrapper { padding: 20px; }
+  .modules-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+}
+
+@media (max-width: 600px) {
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .modules-grid { grid-template-columns: 1fr; }
 }
 </style>

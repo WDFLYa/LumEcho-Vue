@@ -13,6 +13,8 @@ import ChallengeDetail from '@/views/ChallengeDetail.vue'
 import AdminHome from '@/views/AdminHome.vue'
 import AdminUserManage from '@/views/AdminUserManage.vue'
 import PhotographerReview from '@/views/PhotographerReview.vue'
+import ChallengeCreate from '@/views/ChallengeCreate.vue'
+import SubmissionCreate from '@/views/SubmissionCreate.vue'
 const routes = [
     {
         path: '/',
@@ -86,6 +88,20 @@ const routes = [
         component: PhotographerReview,
         meta: { requiresAuth: true, role: 'admin' }
     },
+
+    {
+        path: '/challenge/create',
+        name: 'ChallengeCreate',
+        component: ChallengeCreate,
+        meta: { requiresAuth: true }
+    },
+
+    {
+        path: '/challenge/:challengeId/submit',
+        name: 'SubmissionCreate',
+        component: SubmissionCreate,
+        meta: { title: '提交作品' }
+    }
 ]
 
 const router = createRouter({
