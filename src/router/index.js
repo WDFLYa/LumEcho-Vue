@@ -15,6 +15,7 @@ import AdminUserManage from '@/views/AdminUserManage.vue'
 import PhotographerReview from '@/views/PhotographerReview.vue'
 import ChallengeCreate from '@/views/ChallengeCreate.vue'
 import SubmissionCreate from '@/views/SubmissionCreate.vue'
+import AiChat from '@/views/AiChat.vue'
 const routes = [
     {
         path: '/',
@@ -101,7 +102,16 @@ const routes = [
         name: 'SubmissionCreate',
         component: SubmissionCreate,
         meta: { title: '提交作品' }
+    },
+
+    {
+        path: '/ai/chat/:photographerId?',
+        name: 'AiChat',
+        component: AiChat,
+        meta: { title: '摄影师咨询' }
     }
+
+
 ]
 
 const router = createRouter({
