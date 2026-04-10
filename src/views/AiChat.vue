@@ -1,7 +1,9 @@
 <template>
   <div class="ai-chat-page">
+    <!-- 需求3：固定左上角返回按钮 -->
+    <button class="back-btn" @click="$router.back()">←</button>
+
     <div class="chat-navbar">
-      <button class="back-btn" @click="$router.back()">←</button>
       <div class="chat-top-info">
         <img :src="targetUser.avatar" class="ai-avatar" alt="avatar" />
         <div class="ai-info">
@@ -11,7 +13,10 @@
       </div>
     </div>
 
-    <div class="message-container" ref="msgContainer">
+    <div
+        class="message-container"
+        ref="msgContainer"
+    >
       <div v-if="messages.length === 0" class="empty-chat">
         <div class="empty-icon">📷</div>
         <p>快来向摄影师提问吧～</p>
@@ -36,7 +41,6 @@
           <div class="name">{{ currentUser.username }}</div>
         </div>
       </div>
-
     </div>
 
     <div class="input-wrapper">
@@ -58,7 +62,7 @@
 </template>
 
 <script>
-import { getCurrentUserInfo } from "@/api/auth";
+import { getCurrentUserInfo, getUserById } from "@/api/auth";
 import { getChatHistory } from "@/api/ai";
 
 export default {
@@ -77,23 +81,47 @@ export default {
       },
     };
   },
+  // 需求1：监听消息变化自动滚底，比 mounted 更稳定
+  watch: {
+    messages: {
+      handler() {
+        this.$nextTick(() => {
+          // 微延迟确保图片/字体渲染完成后再计算高度
+          setTimeout(() => this.scrollToBottom(), 120);
+        });
+      },
+      deep: false // 仅监听数组引用变化，提升性能
+    }
+  },
   async mounted() {
-    await this.loadUserInfo();
+    // 移除 mounted 中的直接滚动，全部交给 watch 处理，避免时序冲突
+    await this.loadAllUserInfo();
     await this.loadHistory();
   },
   methods: {
-    async loadUserInfo() {
+    async loadAllUserInfo() {
       try {
-        let res = await getCurrentUserInfo();
-        if (res?.data?.code === 200) {
-          this.currentUser = res.data.data;
+        let userRes = await getCurrentUserInfo();
+        if (userRes?.data?.code === 200) {
+          this.currentUser = userRes.data.data;
         }
       } catch (e) {
-        console.error("用户信息加载失败", e);
+        console.error("当前用户信息加载失败", e);
+      }
+
+      try {
+        const photographerId = this.$route.params.photographerId;
+        if (photographerId) {
+          let targetRes = await getUserById(photographerId);
+          if (targetRes?.data?.code === 200) {
+            this.targetUser = targetRes.data.data;
+          }
+        }
+      } catch (e) {
+        console.error("摄影师信息加载失败", e);
       }
     },
 
-    // 加载历史（已走 ai.js 接口）
     async loadHistory() {
       const photographerId = this.$route.params.photographerId;
       if (!photographerId) return;
@@ -102,14 +130,13 @@ export default {
         const res = await getChatHistory(photographerId);
         if (res.data) {
           this.messages = res.data;
-          this.$nextTick(() => this.scrollToBottom());
+          // 赋值后 watch 会自动触发滚动，无需手动调用
         }
       } catch (e) {
         console.log("暂无历史对话");
       }
     },
 
-    // 发送消息（SSE 必须用 fetch，不能用 axios）
     async sendMessage() {
       const text = this.inputText.trim();
       if (!text) return;
@@ -119,12 +146,17 @@ export default {
 
       const aiMsg = { role: "assistant", content: "" };
       this.messages.push(aiMsg);
+      // 手动触发一次，确保用户消息先贴底
       this.scrollToBottom();
 
       try {
+        const token = localStorage.getItem("user_token");
         const response = await fetch("http://localhost:8080/ai/chat-stream", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             photographerId: this.$route.params.photographerId,
             content: text
@@ -138,47 +170,44 @@ export default {
         while (!done) {
           const result = await reader.read();
           done = result.done;
-          const value = result.value;
-
           if (done) break;
 
-          let chunk = decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(result.value, { stream: true });
           const lines = chunk.split(/\n+/).filter(i => i.trim());
 
           for (const line of lines) {
             const cleanLine = line.trim();
-
             if (cleanLine === "data: [DONE]") {
               done = true;
               break;
             }
-
             if (cleanLine.startsWith("data: ")) {
-              const content = cleanLine.replace("data: ", "");
-              aiMsg.content += content;
-              this.$forceUpdate();
+              aiMsg.content += cleanLine.replace("data: ", "");
+              this.$forceUpdate(); // 强制刷新视图以支持流式输出
               this.scrollToBottom();
             }
           }
         }
-
       } catch (e) {
         aiMsg.content = "😭 摄影师暂时离线啦~";
+        this.$forceUpdate();
+        this.scrollToBottom();
       }
     },
 
+    // 需求1：终极稳定版滚底方法
     scrollToBottom() {
-      this.$nextTick(() => {
-        const el = this.$refs.msgContainer;
-        if (el) el.scrollTop = el.scrollHeight + 200;
-      });
+      const el = this.$refs.msgContainer;
+      if (el) {
+        // 直接赋值是最兼容移动端的做法
+        el.scrollTop = el.scrollHeight;
+      }
     },
   },
 };
 </script>
 
 <style scoped>
-/* 你的样式完全不变 */
 .ai-chat-page {
   min-height: 100vh;
   background: #fafafc;
@@ -187,36 +216,26 @@ export default {
   flex-direction: column;
   overflow: hidden;
 }
+
 .chat-navbar {
   padding: 16px 20px;
   background: #ffffff;
   border-bottom: 1px solid #f0f0f3;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   position: sticky;
   top: 0;
   z-index: 99;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
-.back-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: none;
-  background: #f5f5f7;
-  font-size: 18px;
-  color: #333;
-  cursor: pointer;
+
+.chat-top-info {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: 0.2s ease;
+  gap: 12px;
 }
-.back-btn:hover {
-  background: #e9e9ee;
-  transform: scale(1.05);
-}
+
 .ai-avatar {
   width: 42px;
   height: 42px;
@@ -225,36 +244,72 @@ export default {
   border: 2px solid #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .ai-info h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #222;
 }
+
 .ai-info p {
   margin: 2px 0 0;
   font-size: 12px;
   color: #999;
 }
+
+/* 需求3：固定左上角返回按钮 */
+.back-btn {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e4e4e7;
+  font-size: 18px;
+  line-height: 1;
+  color: #333;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+.back-btn:active {
+  transform: scale(0.95);
+  background: #f5f5f7;
+}
+
+/* 修复 Flex 滚动容器计算错误的核心 CSS */
 .message-container {
   flex: 1;
+  min-height: 0; /* 🔑 关键：防止 flex 子项溢出导致 scrollHeight 计算为 0 */
   padding: 20px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
   background: #fafafc;
+  -webkit-overflow-scrolling: touch;
 }
+
 .empty-chat {
   text-align: center;
   padding: 60px 0;
   color: #999;
 }
+
 .empty-icon {
   font-size: 60px;
   margin-bottom: 12px;
   opacity: 0.5;
 }
+
 .tags {
   display: inline-block;
   margin-top: 8px;
@@ -264,6 +319,7 @@ export default {
   font-size: 12px;
   color: #888;
 }
+
 .msg-item {
   display: flex;
   max-width: 78%;
@@ -271,25 +327,30 @@ export default {
   opacity: 0;
   animation: msgFadeIn 0.3s ease-out forwards;
 }
+
 .left-msg {
   align-self: flex-start;
   flex-direction: column;
   animation-name: msgSlideLeft;
 }
+
 .right-msg {
   align-self: flex-end;
   flex-direction: column-reverse;
   align-items: flex-end;
   animation-name: msgSlideRight;
 }
+
 .avatar-box {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .self-box {
   flex-direction: row-reverse;
 }
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -298,11 +359,13 @@ export default {
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
+
 .name {
   font-size: 12px;
   color: #888;
   font-weight: 500;
 }
+
 .bubble {
   padding: 12px 16px;
   border-radius: 18px;
@@ -312,6 +375,7 @@ export default {
   transition: all 0.2s;
   animation: bubbleBounce 0.35s ease-out 0.05s forwards;
 }
+
 .ai-bubble {
   background: #ffffff;
   border: 1px solid #f0f0f3;
@@ -319,59 +383,57 @@ export default {
   border-top-left-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
+
 .user-bubble {
   background: linear-gradient(135deg, #7b61ff, #6c63ff);
   color: #fff;
   border-top-right-radius: 6px;
   box-shadow: 0 3px 10px rgba(123, 97, 255, 0.12);
 }
+
+/* 需求2：输入框区域缩短变精致 */
 .input-wrapper {
   display: flex;
-  gap: 10px;
-  padding: 14px 18px;
-  background: #ffffff;
-  border-top: 1px solid #f0f0f3;
-  width: 100%;
-  max-width: 100vw;
-  box-sizing: border-box;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  align-items: center;
 }
+
 .chat-input {
   flex: 1;
-  padding: 12px 18px;
+  padding: 0 14px;
   border: 1px solid #eee;
-  border-radius: 24px;
-  font-size: 14px;
+  border-radius: 18px;
+  font-size: 13px;
+  height: 32px;
+  line-height: 32px;
   outline: none;
-  transition: 0.2s;
-  background: #f8f8fa;
+  transition: border-color 0.2s;
 }
+
 .chat-input:focus {
-  border-color: #d9d0ff;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(123, 97, 255, 0.1);
+  border-color: #7b61ff;
 }
+
 .send-btn {
-  padding: 0 22px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #7b61ff, #6c63ff);
+  padding: 0 14px;
+  border-radius: 18px;
+  background: #7b61ff;
   color: #fff;
   border: none;
-  font-weight: 600;
+  height: 32px;
+  font-size: 13px;
   cursor: pointer;
-  transition: 0.2s ease;
-  box-shadow: 0 3px 8px rgba(123, 97, 255, 0.15);
+  transition: background 0.2s;
 }
-.send-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(123, 97, 255, 0.2);
-}
+
 .send-btn:disabled {
-  background: #ccc;
+  background: #c4b5fd;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
+
 @keyframes msgFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes msgSlideLeft { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes msgSlideRight { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
