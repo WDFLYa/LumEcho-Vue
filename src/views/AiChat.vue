@@ -1,6 +1,5 @@
 <template>
   <div class="ai-chat-page">
-    <!-- 需求3：固定左上角返回按钮 -->
     <button class="back-btn" @click="$router.back()">←</button>
 
     <div class="chat-navbar">
@@ -62,6 +61,7 @@
 </template>
 
 <script>
+/* eslint-disable */
 import { getCurrentUserInfo, getUserById } from "@/api/auth";
 import { getChatHistory } from "@/api/ai";
 
@@ -81,24 +81,34 @@ export default {
       },
     };
   },
-  // 需求1：监听消息变化自动滚底，比 mounted 更稳定
   watch: {
     messages: {
       handler() {
         this.$nextTick(() => {
-          // 微延迟确保图片/字体渲染完成后再计算高度
-          setTimeout(() => this.scrollToBottom(), 120);
+          this.forceBottom();
         });
       },
-      deep: false // 仅监听数组引用变化，提升性能
-    }
+      deep: true,
+    },
   },
   async mounted() {
-    // 移除 mounted 中的直接滚动，全部交给 watch 处理，避免时序冲突
     await this.loadAllUserInfo();
     await this.loadHistory();
+
+    // 只滚 1 次，不抖动
+    setTimeout(() => {
+      this.forceBottom();
+    }, 100);
   },
   methods: {
+    // 干净、无抖动、只滚一次
+    forceBottom() {
+      const el = this.$refs.msgContainer;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    },
+
     async loadAllUserInfo() {
       try {
         let userRes = await getCurrentUserInfo();
@@ -107,18 +117,6 @@ export default {
         }
       } catch (e) {
         console.error("当前用户信息加载失败", e);
-      }
-
-      try {
-        const photographerId = this.$route.params.photographerId;
-        if (photographerId) {
-          let targetRes = await getUserById(photographerId);
-          if (targetRes?.data?.code === 200) {
-            this.targetUser = targetRes.data.data;
-          }
-        }
-      } catch (e) {
-        console.error("摄影师信息加载失败", e);
       }
     },
 
@@ -130,7 +128,6 @@ export default {
         const res = await getChatHistory(photographerId);
         if (res.data) {
           this.messages = res.data;
-          // 赋值后 watch 会自动触发滚动，无需手动调用
         }
       } catch (e) {
         console.log("暂无历史对话");
@@ -146,8 +143,7 @@ export default {
 
       const aiMsg = { role: "assistant", content: "" };
       this.messages.push(aiMsg);
-      // 手动触发一次，确保用户消息先贴底
-      this.scrollToBottom();
+      this.forceBottom();
 
       try {
         const token = localStorage.getItem("user_token");
@@ -155,12 +151,12 @@ export default {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             photographerId: this.$route.params.photographerId,
-            content: text
-          })
+            content: text,
+          }),
         });
 
         const reader = response.body.getReader();
@@ -173,7 +169,7 @@ export default {
           if (done) break;
 
           const chunk = decoder.decode(result.value, { stream: true });
-          const lines = chunk.split(/\n+/).filter(i => i.trim());
+          const lines = chunk.split(/\n+/).filter((i) => i.trim());
 
           for (const line of lines) {
             const cleanLine = line.trim();
@@ -183,24 +179,15 @@ export default {
             }
             if (cleanLine.startsWith("data: ")) {
               aiMsg.content += cleanLine.replace("data: ", "");
-              this.$forceUpdate(); // 强制刷新视图以支持流式输出
-              this.scrollToBottom();
+              this.$forceUpdate();
+              this.forceBottom();
             }
           }
         }
       } catch (e) {
         aiMsg.content = "😭 摄影师暂时离线啦~";
         this.$forceUpdate();
-        this.scrollToBottom();
-      }
-    },
-
-    // 需求1：终极稳定版滚底方法
-    scrollToBottom() {
-      const el = this.$refs.msgContainer;
-      if (el) {
-        // 直接赋值是最兼容移动端的做法
-        el.scrollTop = el.scrollHeight;
+        this.forceBottom();
       }
     },
   },
@@ -258,7 +245,6 @@ export default {
   color: #999;
 }
 
-/* 需求3：固定左上角返回按钮 */
 .back-btn {
   position: fixed;
   top: 16px;
@@ -285,10 +271,9 @@ export default {
   background: #f5f5f7;
 }
 
-/* 修复 Flex 滚动容器计算错误的核心 CSS */
 .message-container {
   flex: 1;
-  min-height: 0; /* 🔑 关键：防止 flex 子项溢出导致 scrollHeight 计算为 0 */
+  min-height: 0;
   padding: 20px;
   overflow-y: auto;
   display: flex;
@@ -391,7 +376,6 @@ export default {
   box-shadow: 0 3px 10px rgba(123, 97, 255, 0.12);
 }
 
-/* 需求2：输入框区域缩短变精致 */
 .input-wrapper {
   display: flex;
   gap: 8px;
