@@ -92,3 +92,9 @@ export function getApplicationListByActivityId(activityId) {
     })
 }
 
+export function applyActivityDirect(activityId) {
+    return request({
+        url: `/api/activityapplication/${activityId}/apply-direct`,
+        method: 'post'
+    })
+}

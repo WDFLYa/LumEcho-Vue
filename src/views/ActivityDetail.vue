@@ -9,7 +9,6 @@
     />
 
     <main class="detail-container" v-if="activity">
-      <!-- 顶部头部 -->
       <div class="detail-hero">
         <div class="cover-blur" :style="{ backgroundImage: `url(${activity.coverUrl})` }"></div>
         <div class="cover-content">
@@ -21,7 +20,6 @@
         </div>
       </div>
 
-      <!-- 信息卡片 -->
       <div class="info-card">
         <div class="info-grid">
           <div class="info-item">
@@ -68,7 +66,6 @@
           </div>
         </div>
 
-        <!-- 动态按钮 -->
         <div class="action-box">
           <button
               class="join-btn"
@@ -93,6 +90,7 @@ import ActivityNavBar from "@/components/NavBar/ActivityNavBar.vue";
 import {
   getActivityDetail,
   applyActivity,
+  applyActivityDirect,
   getMyApplicationStatus,
   cancelApplication
 } from "@/api/activity";
@@ -125,10 +123,8 @@ export default {
       if (!this.myApplication) return "立即报名参加";
       if (s === 0) return "申请中，请等待审核";
       if (s === 1) return "报名成功，请按时参加";
-      // 已取消
-      if (s === 4) return "已取消报名";
-      // 报名失败 → 直接显示已拒绝
-      if (s === 2 || s === 3) return "已拒绝";
+      if (s === 2) return "已拒绝";
+      if (s === 3) return "已取消报名";
       return "状态异常";
     },
     btnTheme() {
@@ -139,17 +135,15 @@ export default {
       if (!this.myApplication) return "btn-active";
       if (s === 0) return "btn-pending";
       if (s === 1) return "btn-approved";
-      // 取消 & 拒绝 都用灰色禁用样式
-      if (s === 2 || s === 3 || s === 4) return "btn-disabled";
+      if (s === 2 || s === 3) return "btn-disabled";
       return "btn-disabled";
     },
     btnDisabled() {
       if (this.activity?.status === 2) return true;
       if (this.isFull) return true;
       const s = this.myApplication?.status;
-      // 除了未报名 & 报名失败可重报外，其他都禁用
-      // 你要求：失败也直接禁用，所以这里统一禁用
-      return !!s;
+      // 只有 已通过(1) 可以点击打开弹窗，其他全部禁用
+      return s !== undefined && s !== null && s !== 1;
     },
     isFull() {
       return (this.activity?.currentParticipants || 0) >= (this.activity?.maxParticipants || 0);
@@ -179,30 +173,48 @@ export default {
         console.error(err);
       }
     },
+
+    // ====================== 修复在这里！！！ ======================
     async handleAction() {
       const s = this.myApplication?.status;
 
-      // 只要有状态，一律不允许点击
-      if (s) return;
-
-      if (!this.myApplication) {
-        await this.doApply(this.$route.params.id);
+      // 已报名成功 → 打开弹窗
+      if (s === 1) {
+        this.showNiceDialog();
         return;
       }
+
+      // 其他状态：禁止操作
+      if (s === 0 || s === 2 || s === 3) {
+        return;
+      }
+
+      // 未报名 → 执行报名
+      await this.doApply(this.$route.params.id);
     },
+
     async doApply(activityId) {
       try {
-        await applyActivity(activityId);
         if (this.activity.requireAudit) {
+          await applyActivity(activityId);
           ElMessage.success("报名成功，等待管理员审核");
         } else {
+          await applyActivityDirect(activityId);
           ElMessage.success("报名成功");
         }
+
         await this.init();
+
+        if (!this.activity.requireAudit) {
+          setTimeout(() => {
+            this.showNiceDialog();
+          }, 300);
+        }
       } catch (err) {
         ElMessage.error(err.response?.data?.message || "报名失败");
       }
     },
+
     async doCancel(applicationId) {
       try {
         await cancelApplication(applicationId);
@@ -213,7 +225,6 @@ export default {
       }
     },
 
-    // 报名成功弹窗
     showNiceDialog() {
       const time = this.formatDate(this.activity.startTime);
       const place = this.activity.location;
@@ -222,9 +233,9 @@ export default {
         message: `
           <div style="text-align:center; padding:10px 10px 0;">
             <h2 style="margin:0 0 12px; font-size:17px; font-weight:700; color:#222;">✅ 报名成功</h2>
-            <div style="font-size:14px; color:#555; line-height:1.9;">
-              <div>📅 ${time}</div>
-              <div>📍 ${place}</div>
+            <div style="text-align:left; margin:0 auto; max-width:200px; font-size:14px; color:#555; line-height:1.9;">
+              <div>📅 活动时间：${time}</div>
+              <div>📍 活动地点：${place}</div>
             </div>
             <p style="margin-top:12px; font-size:12px; color:#999;">请按时参加活动</p>
           </div>
@@ -243,7 +254,6 @@ export default {
       });
     },
 
-    // 确认取消弹窗
     showConfirmCancelDialog() {
       ElMessageBox({
         message: `
@@ -267,9 +277,6 @@ export default {
       });
     },
 
-    handleSearch() {},
-    goCreate() { this.$router.push('/activity/create'); },
-    goProfile() { this.$router.push('/profile'); },
     formatDate(time) {
       if (!time) return "";
       const d = new Date(time);
@@ -437,6 +444,7 @@ export default {
 .btn-approved {
   background: #4CAF50;
   color: #fff;
+  cursor: pointer !important;
 }
 .btn-approved:hover {
   transform: translateY(-3px);
@@ -453,7 +461,6 @@ export default {
 }
 </style>
 
-<!-- 弹窗样式 -->
 <style>
 .custom-dialog {
   border-radius: 20px !important;
