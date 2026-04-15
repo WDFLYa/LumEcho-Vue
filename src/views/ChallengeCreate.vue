@@ -6,96 +6,107 @@
     />
 
     <main class="content-area">
-      <div class="page-header">
-        <h2>✨ 创建新挑战赛</h2>
-        <p>设定规则、发布活动，激发社区创作热情</p>
+      <!-- 🔒 权限不足页面（非摄影师/管理员显示） -->
+      <div v-if="!isPhotographer" class="forbidden-card warning">
+        <div class="forbidden-icon">⚠️</div>
+        <h3>权限不足</h3>
+        <p>仅认证摄影师或管理员可创建挑战赛</p>
+        <button class="back-btn" @click="goBack">返回挑战赛列表</button>
       </div>
 
-      <div class="form-container">
-        <form @submit.prevent="handleSubmit" class="challenge-form">
+      <!-- ✅ 有权限才显示表单 -->
+      <div v-else>
+        <div class="page-header">
+          <h2>✨ 创建新挑战赛</h2>
+          <p>设定规则、发布活动，激发社区创作热情</p>
+        </div>
 
-          <!-- 🖼️ 封面上传 -->
-          <div class="form-group">
-            <label class="form-label">🖼️ 挑战赛封面</label>
-            <div class="upload-box" @click="$refs.fileInput.click()" :class="{ 'has-preview': coverPreview }">
-              <img v-if="coverPreview" :src="coverPreview" class="cover-img" alt="预览" />
-              <div v-else class="upload-placeholder">
-                <span class="icon">📷</span>
-                <span class="text">点击上传封面 (建议 16:9, ≤5MB)</span>
-              </div>
-              <input ref="fileInput" type="file" accept="image/*" hidden @change="handleCoverUpload" />
-            </div>
-            <div v-if="uploadingCover" class="upload-status">⏳ 图片上传中...</div>
-            <div v-if="coverError" class="upload-error">❌ {{ coverError }}</div>
-          </div>
+        <div class="form-container">
+          <form @submit.prevent="handleSubmit" class="challenge-form">
 
-          <!-- 标题 & 详情 -->
-          <div class="form-group">
-            <label class="form-label">🏷️ 挑战标题</label>
-            <input v-model="form.title" type="text" placeholder="例如：秋日风光摄影大赛" class="form-input" required maxlength="50" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">📝 挑战详情</label>
-            <textarea v-model="form.description" placeholder="详细描述比赛主题、投稿要求、评选流程等..." class="form-input form-textarea" rows="4" required maxlength="500"></textarea>
-          </div>
-
-          <!-- 📜 动态规则列表 -->
-          <div class="form-group">
-            <label class="form-label">📜 参赛规则 <span class="hint">（提交时自动转为 JSON）</span></label>
-            <div class="dynamic-list">
-              <div v-for="(rule, idx) in form.rules" :key="'rule-'+idx" class="list-item">
-                <input v-model="form.rules[idx]" class="form-input" placeholder="例如：作品必须为本人原创" />
-                <button type="button" @click="removeItem('rules', idx)" class="remove-btn">✕</button>
-              </div>
-              <button type="button" @click="addItem('rules')" class="add-btn">+ 添加规则</button>
-            </div>
-          </div>
-
-          <!-- 🏆 动态奖项列表 -->
-          <div class="form-group">
-            <label class="form-label">🏆 奖项设置 <span class="hint">（提交时自动转为 JSON）</span></label>
-            <div class="dynamic-list">
-              <div v-for="(prize, idx) in form.prizes" :key="'prize-'+idx" class="list-item">
-                <input v-model="form.prizes[idx]" class="form-input" placeholder="例如：一等奖：5000元现金 + 官方认证" />
-                <button type="button" @click="removeItem('prizes', idx)" class="remove-btn">✕</button>
-              </div>
-              <button type="button" @click="addItem('prizes')" class="add-btn">+ 添加奖项</button>
-            </div>
-          </div>
-
-          <!-- 时间组 → 只改成 date，其他完全不动 -->
-          <div class="form-row">
+            <!-- 🖼️ 封面上传 -->
             <div class="form-group">
-              <label class="form-label">🚀 开始时间</label>
-              <input v-model="form.startTime" type="date" class="form-input date-input" required />
+              <label class="form-label">🖼️ 挑战赛封面</label>
+              <div class="upload-box" @click="$refs.fileInput.click()" :class="{ 'has-preview': coverPreview }">
+                <img v-if="coverPreview" :src="coverPreview" class="cover-img" alt="预览" />
+                <div v-else class="upload-placeholder">
+                  <span class="icon">📷</span>
+                  <span class="text">点击上传封面 (建议 16:9, ≤5MB)</span>
+                </div>
+                <input ref="fileInput" type="file" accept="image/*" hidden @change="handleCoverUpload" />
+              </div>
+              <div v-if="uploadingCover" class="upload-status">⏳ 图片上传中...</div>
+              <div v-if="coverError" class="upload-error">❌ {{ coverError }}</div>
+            </div>
+
+            <!-- 标题 & 详情 -->
+            <div class="form-group">
+              <label class="form-label">🏷️ 挑战标题</label>
+              <input v-model="form.title" type="text" placeholder="例如：秋日风光摄影大赛" class="form-input" required maxlength="50" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">📝 挑战详情</label>
+              <textarea v-model="form.description" placeholder="详细描述比赛主题、投稿要求、评选流程等..." class="form-input form-textarea" rows="4" required maxlength="500"></textarea>
+            </div>
+
+            <!-- 📜 动态规则列表 -->
+            <div class="form-group">
+              <label class="form-label">📜 参赛规则 <span class="hint">（提交时自动转为 JSON）</span></label>
+              <div class="dynamic-list">
+                <div v-for="(rule, idx) in form.rules" :key="'rule-'+idx" class="list-item">
+                  <input v-model="form.rules[idx]" class="form-input" placeholder="例如：作品必须为本人原创" />
+                  <button type="button" @click="removeItem('rules', idx)" class="remove-btn">✕</button>
+                </div>
+                <button type="button" @click="addItem('rules')" class="add-btn">+ 添加规则</button>
+              </div>
+            </div>
+
+            <!-- 🏆 动态奖项列表 -->
+            <div class="form-group">
+              <label class="form-label">🏆 奖项设置 <span class="hint">（提交时自动转为 JSON）</span></label>
+              <div class="dynamic-list">
+                <div v-for="(prize, idx) in form.prizes" :key="'prize-'+idx" class="list-item">
+                  <input v-model="form.prizes[idx]" class="form-input" placeholder="例如：一等奖：5000元现金 + 官方认证" />
+                  <button type="button" @click="removeItem('prizes', idx)" class="remove-btn">✕</button>
+                </div>
+                <button type="button" @click="addItem('prizes')" class="add-btn">+ 添加奖项</button>
+              </div>
+            </div>
+
+            <!-- 时间组 -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">🚀 开始时间</label>
+                <input v-model="form.startTime" type="date" class="form-input date-input" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">📅 截止时间</label>
+                <input v-model="form.endTime" type="date" class="form-input date-input" required />
+              </div>
             </div>
             <div class="form-group">
-              <label class="form-label">📅 截止时间</label>
-              <input v-model="form.endTime" type="date" class="form-input date-input" required />
+              <label class="form-label">⏱️ 评审结束时间</label>
+              <input v-model="form.reviewEndTime" type="date" class="form-input date-input" required />
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">⏱️ 评审结束时间</label>
-            <input v-model="form.reviewEndTime" type="date" class="form-input date-input" required />
-          </div>
 
-          <!-- 人数限制 -->
-          <div class="form-group">
-            <label class="form-label">👥 最大参与人数</label>
-            <div class="participant-control">
-              <input v-model.number="form.maxParticipants" type="number" :disabled="form.unlimited" placeholder="输入人数限制" class="form-input" min="1" />
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="form.unlimited" @change="toggleUnlimited" />
-                <span>不限人数</span>
-              </label>
+            <!-- 人数限制 -->
+            <div class="form-group">
+              <label class="form-label">👥 最大参与人数</label>
+              <div class="participant-control">
+                <input v-model.number="form.maxParticipants" type="number" :disabled="form.unlimited" placeholder="输入人数限制" class="form-input" min="1" />
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="form.unlimited" @change="toggleUnlimited" />
+                  <span>不限人数</span>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <button type="submit" class="submit-btn" :disabled="isSubmitting">
-            {{ isSubmitting ? '🚀 发布中...' : '🎉 立即发布挑战' }}
-          </button>
-        </form>
+            <button type="submit" class="submit-btn" :disabled="isSubmitting">
+              {{ isSubmitting ? '🚀 发布中...' : '🎉 立即发布挑战' }}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   </div>
@@ -133,11 +144,29 @@ export default {
       }
     };
   },
+
+  computed: {
+    isPhotographer() {
+      const role = (localStorage.getItem('user_role') || '').trim().toUpperCase();
+      return role === 'ADMIN' || role === 'PHOTOGRAPHER';
+    }
+  },
+
+  mounted() {
+    if (!this.isPhotographer) {
+      // 这里改成警告，不是错误
+      ElMessage.warning('⚠️ 仅摄影师/管理员可创建挑战赛');
+    }
+  },
+
   methods: {
+    goBack() {
+      this.$router.push('/challenge');
+    },
+
     toggleUnlimited() {
       this.form.maxParticipants = this.form.unlimited ? -1 : 50;
     },
-    // 日期格式化（自动补 00:00:00）
     formatDateToDayStart(dateStr) {
       if (!dateStr) return '';
       return dateStr + ' 00:00:00';
@@ -164,7 +193,6 @@ export default {
       try {
         const res = await uploadFile(file, 'CHALLENGE_COVER');
         const url = res.data?.data || res.data;
-
         if (res.data?.code === 200 || res.code === 200) {
           this.form.coverUrl = url;
           this.coverPreview = URL.createObjectURL(file);
@@ -190,12 +218,8 @@ export default {
     },
 
     async handleSubmit() {
-      const userRole = (localStorage.getItem('user_role') || '').toUpperCase();
-      console.log('🔍 当前用户角色:', userRole);
-
-      const allowedRoles = ['ADMIN', 'PHOTOGRAPHER'];
-      if (!allowedRoles.includes(userRole)) {
-        ElMessage.warning('🔒 权限不足：仅管理员或认证摄影师可发布挑战赛');
+      if (!this.isPhotographer) {
+        ElMessage.warning('⚠️ 权限不足，无法发布');
         return;
       }
 
@@ -246,7 +270,51 @@ export default {
 </script>
 
 <style scoped>
-/* ================= 基础布局 (保持原有) ================= */
+/* 🔒 警告风格权限卡片 */
+.forbidden-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(106, 27, 154, 0.08);
+  margin-top: 20px;
+}
+.forbidden-card.warning {
+  border: 1px solid #B39DDB;
+  background: #F3E5F5;
+}
+.forbidden-icon {
+  font-size: 52px;
+  margin-bottom: 20px;
+  color: #8E24AA;
+}
+.forbidden-card h3 {
+  font-size: 24px;
+  color: #6A1B9A;
+  margin: 0 0 12px;
+  font-weight: 900;
+}
+.forbidden-card p {
+  color: #8E24AA;
+  font-size: 15px;
+  margin-bottom: 28px;
+}
+.back-btn {
+  padding: 14px 32px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #AB47BC, #8E24AA);
+  color: #fff;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(142, 36, 170, 0.2);
+  transition: all 0.3s;
+}
+.back-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* 原有样式不动 */
 .challenge-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #F3E5F5 0%, #FFFFFF 100%);
@@ -278,7 +346,6 @@ export default {
 .form-textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
 input[type="datetime-local"] { appearance: none; cursor: pointer; }
 
-/* ================= 日期选择框美化（只加这个，不影响原有样式） ================= */
 .date-input {
   color: #6A1B9A;
   cursor: pointer;
@@ -296,7 +363,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-/* ================= 🖼️ 封面上传样式 ================= */
 .upload-box {
   width: 100%; height: 180px; border: 2px dashed #E1BEE7; border-radius: 16px;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -310,7 +376,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .upload-status { font-size: 13px; color: #AB47BC; margin-top: 6px; }
 .upload-error { font-size: 13px; color: #E53935; margin-top: 6px; }
 
-/* ================= 📜 动态列表样式 ================= */
 .dynamic-list { display: flex; flex-direction: column; gap: 10px; }
 .list-item { display: flex; gap: 10px; align-items: center; }
 .list-item .form-input { flex: 1; }
@@ -326,7 +391,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 .add-btn:hover { background: #E1BEE7; border-color: #AB47BC; }
 
-/* ================= 其他原有样式 ================= */
 .participant-control { display: flex; align-items: center; gap: 16px; }
 .participant-control .form-input { flex: 1; }
 .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #8E24AA; user-select: none; white-space: nowrap; }

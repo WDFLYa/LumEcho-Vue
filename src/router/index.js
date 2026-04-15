@@ -16,6 +16,9 @@ import PhotographerReview from '@/views/PhotographerReview.vue'
 import ChallengeCreate from '@/views/ChallengeCreate.vue'
 import SubmissionCreate from '@/views/SubmissionCreate.vue'
 import AiChat from '@/views/AiChat.vue'
+import ActivityDetail from '@/views/ActivityDetail.vue'
+import ActivityCreate from '@/views/ActivityCreate.vue'
+
 const routes = [
     {
         path: '/',
@@ -109,8 +112,17 @@ const routes = [
         name: 'AiChat',
         component: AiChat,
         meta: { title: '摄影师咨询' }
+    },
+    {
+        path: '/activity/:id',
+        name: 'ActivityDetail',
+        component: ActivityDetail
+    },
+    {
+        path: '/activity/create',
+        name: 'ActivityCreate',
+        component: ActivityCreate
     }
-
 
 ]
 
