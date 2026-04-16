@@ -68,12 +68,35 @@
 
         <div class="action-box">
           <button
+              v-if="activity.status === 0"
               class="join-btn"
               :class="btnTheme"
               :disabled="btnDisabled"
               @click="handleAction"
           >
             {{ btnText }}
+          </button>
+
+          <template v-else-if="activity.status === 1">
+            <button
+                v-if="myApplication?.status === 1"
+                class="join-btn btn-approved"
+                @click="doCheckIn"
+                :disabled="hasChecked"
+            >
+              {{ hasChecked ? "✅ 已签到" : "📱 立即签到" }}
+            </button>
+            <button v-else class="join-btn btn-disabled" disabled>
+              未报名，无法签到
+            </button>
+          </template>
+
+          <button
+              v-else-if="activity.status === 2"
+              class="join-btn btn-disabled"
+              disabled
+          >
+            活动已结束
           </button>
         </div>
       </div>
@@ -92,8 +115,10 @@ import {
   applyActivity,
   applyActivityDirect,
   getMyApplicationStatus,
-  cancelApplication
+  cancelApplication,
+  activityCheckIn
 } from "@/api/activity";
+
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
@@ -104,7 +129,8 @@ export default {
       currentUserAvatar: localStorage.getItem('user_avatar') || 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: localStorage.getItem('user_name') || '摄影师',
       activity: null,
-      myApplication: null
+      myApplication: null,
+      hasChecked: false
     };
   },
   mounted() {
@@ -116,9 +142,7 @@ export default {
       return map[this.activity?.status || 0];
     },
     btnText() {
-      if (this.activity?.status === 2) return "活动已结束";
       if (this.isFull) return "人数已满";
-
       const s = this.myApplication?.status;
       if (!this.myApplication) return "立即报名参加";
       if (s === 0) return "申请中，请等待审核";
@@ -128,9 +152,7 @@ export default {
       return "状态异常";
     },
     btnTheme() {
-      if (this.activity?.status === 2) return "btn-disabled";
       if (this.isFull) return "btn-full";
-
       const s = this.myApplication?.status;
       if (!this.myApplication) return "btn-active";
       if (s === 0) return "btn-pending";
@@ -139,10 +161,8 @@ export default {
       return "btn-disabled";
     },
     btnDisabled() {
-      if (this.activity?.status === 2) return true;
       if (this.isFull) return true;
       const s = this.myApplication?.status;
-      // 只有 已通过(1) 可以点击打开弹窗，其他全部禁用
       return s !== undefined && s !== null && s !== 1;
     },
     isFull() {
@@ -173,26 +193,17 @@ export default {
         console.error(err);
       }
     },
-
-    // ====================== 修复在这里！！！ ======================
     async handleAction() {
       const s = this.myApplication?.status;
-
-      // 已报名成功 → 打开弹窗
       if (s === 1) {
         this.showNiceDialog();
         return;
       }
-
-      // 其他状态：禁止操作
       if (s === 0 || s === 2 || s === 3) {
         return;
       }
-
-      // 未报名 → 执行报名
       await this.doApply(this.$route.params.id);
     },
-
     async doApply(activityId) {
       try {
         if (this.activity.requireAudit) {
@@ -202,9 +213,7 @@ export default {
           await applyActivityDirect(activityId);
           ElMessage.success("报名成功");
         }
-
         await this.init();
-
         if (!this.activity.requireAudit) {
           setTimeout(() => {
             this.showNiceDialog();
@@ -214,7 +223,6 @@ export default {
         ElMessage.error(err.response?.data?.message || "报名失败");
       }
     },
-
     async doCancel(applicationId) {
       try {
         await cancelApplication(applicationId);
@@ -224,11 +232,9 @@ export default {
         ElMessage.error("取消失败");
       }
     },
-
     showNiceDialog() {
       const time = this.formatDate(this.activity.startTime);
       const place = this.activity.location;
-
       ElMessageBox({
         message: `
           <div style="text-align:center; padding:10px 10px 0;">
@@ -253,7 +259,6 @@ export default {
         this.showConfirmCancelDialog();
       });
     },
-
     showConfirmCancelDialog() {
       ElMessageBox({
         message: `
@@ -276,7 +281,27 @@ export default {
         ElMessage.info("已取消操作");
       });
     },
-
+    async doCheckIn() {
+      ElMessage.info("正在获取定位…");
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          await activityCheckIn({
+            activityId: this.activity.id,
+            latitude: lat,
+            longitude: lng
+          });
+          ElMessage.success("签到成功！");
+          this.hasChecked = true;
+        } catch (err) {
+          const msg = err.response?.data?.message || "签到失败";
+          ElMessage.error(msg);
+        }
+      }, () => {
+        ElMessage.error("获取定位失败，请打开定位权限");
+      });
+    },
     formatDate(time) {
       if (!time) return "";
       const d = new Date(time);
@@ -289,7 +314,10 @@ export default {
     getStatusText(status) {
       const map = { 0: "待开始", 1: "进行中", 2: "已结束" };
       return map[status];
-    }
+    },
+    handleSearch() {},
+    goCreate() { this.$router.push('/activity/create'); },
+    goProfile() { this.$router.push('/profile'); }
   }
 };
 </script>
@@ -427,9 +455,9 @@ export default {
   box-shadow: 0 10px 25px rgba(255, 152, 0, 0.3);
 }
 .btn-disabled {
-  background: #B0BEC5;
-  color: #fff;
-  cursor: not-allowed;
+  background: #B0BEC5 !important;
+  color: #fff !important;
+  cursor: not-allowed !important;
 }
 .btn-full {
   background: #FFCC80;

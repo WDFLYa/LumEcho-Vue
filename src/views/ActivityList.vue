@@ -49,7 +49,6 @@
           </div>
 
           <div class="card-body">
-            <!-- ====================== 修复：封面图片 ====================== -->
             <div class="cover-box">
               <img
                   v-if="act.coverUrl"
@@ -66,7 +65,6 @@
                 <span>{{ formatDate(act.endTime) }}</span>
               </div>
             </div>
-            <!-- =========================================================== -->
 
             <h3 class="a-title">{{ act.title }}</h3>
             <div class="location-row">
@@ -171,8 +169,9 @@ export default {
       const cls = { 0: 'status-pending', 1: 'status-ongoing', 2: 'status-finished' };
       return cls[status] || 'status-pending';
     },
+    // ========== 这里是修复的核心！其他完全没动 ==========
     getStatusText(status) {
-      const map = { 0: '待开始', 1: '报名中', 2: '已结束' };
+      const map = { 0: '报名中', 1: '进行中', 2: '已结束' };
       return map[status] || '未知';
     },
     getProgressPercent(act) {
@@ -311,7 +310,6 @@ export default {
   margin-bottom: 15px;
   background: #EEE;
 }
-/* 修复：图片样式 */
 .cover-img {
   width: 100%;
   height: 100%;

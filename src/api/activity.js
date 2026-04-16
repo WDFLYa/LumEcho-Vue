@@ -98,3 +98,13 @@ export function applyActivityDirect(activityId) {
         method: 'post'
     })
 }
+
+
+// 活动签到
+export function activityCheckIn(data) {
+    return request({
+        url: '/api/activity/checkin',
+        method: 'post',
+        data
+    })
+}
