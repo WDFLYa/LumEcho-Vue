@@ -10,6 +10,15 @@ import ProfileEdit from '@/views/ProfileEdit.vue'
 import ChallengeList from '@/views/ChallengeList.vue'
 import ActivityList from '@/views/ActivityList.vue'
 import ChallengeDetail from '@/views/ChallengeDetail.vue'
+import AdminHome from '@/views/AdminHome.vue'
+import AdminUserManage from '@/views/AdminUserManage.vue'
+import PhotographerReview from '@/views/PhotographerReview.vue'
+import ChallengeCreate from '@/views/ChallengeCreate.vue'
+import SubmissionCreate from '@/views/SubmissionCreate.vue'
+import AiChat from '@/views/AiChat.vue'
+import ActivityDetail from '@/views/ActivityDetail.vue'
+import ActivityCreate from '@/views/ActivityCreate.vue'
+import PostManage from '@/views/PostManage.vue'
 const routes = [
     {
         path: '/',
@@ -62,6 +71,64 @@ const routes = [
         name: 'ChallengeDetail',
         component: ChallengeDetail,
     },
+
+    {
+        path: '/admin',
+        name: 'AdminHome',
+        component: AdminHome,
+        meta: { requiresAuth: true, role: 'admin' }
+    },
+
+    {
+        path: '/admin/users',
+        name: 'AdminUsers',
+        component: AdminUserManage,
+        meta: { requiresAuth: true, role: 'admin' } // 需要登录且是管理员
+    },
+
+    {
+        path: '/admin/photographers',
+        name: 'AdminPhotographer',
+        component: PhotographerReview,
+        meta: { requiresAuth: true, role: 'admin' }
+    },
+
+    {
+        path: '/challenge/create',
+        name: 'ChallengeCreate',
+        component: ChallengeCreate,
+        meta: { requiresAuth: true }
+    },
+
+    {
+        path: '/challenge/:challengeId/submit',
+        name: 'SubmissionCreate',
+        component: SubmissionCreate,
+        meta: { title: '提交作品' }
+    },
+
+    {
+        path: '/ai/chat/:photographerId?',
+        name: 'AiChat',
+        component: AiChat,
+        meta: { title: '摄影师咨询' }
+    },
+    {
+        path: '/activity/:id',
+        name: 'ActivityDetail',
+        component: ActivityDetail
+    },
+    {
+        path: '/activity/create',
+        name: 'ActivityCreate',
+        component: ActivityCreate
+    },
+    {
+        path: "/admin/posts",
+        name: "PostManage",
+        component: PostManage,
+        meta: { title: "帖子管理" }
+    }
 ]
 
 const router = createRouter({

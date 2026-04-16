@@ -20,12 +20,11 @@
       </div>
 
       <div v-else-if="challenge" class="detail-flow">
-        <!-- 阶段一：报名/准备期 -->
+        <!-- 报名/投稿阶段 -->
         <div v-if="isActionPhase" class="phase-action">
           <section class="hero-section">
             <div class="hero-cover">
               <img :src="challenge.coverUrl || defaultCover" alt="Cover" />
-              <div class="hero-overlay"></div>
             </div>
             <div class="hero-content">
               <span :class="['status-badge', getStatusClass(challenge.status)]">
@@ -35,8 +34,16 @@
               <p class="hero-desc">{{ challenge.description }}</p>
               <div class="hero-meta">
                 <div class="meta-item">
+                  <span class="meta-icon">🟢</span>
+                  <span>开始：{{ formatDate(challenge.startTime) }}</span>
+                </div>
+                <div class="meta-item">
                   <span class="meta-icon">📅</span>
                   <span>截止：{{ formatDate(challenge.endTime) }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-icon">🏁</span>
+                  <span>评审结束：{{ formatDate(challenge.reviewEndTime) }}</span>
                 </div>
                 <div class="meta-item">
                   <span class="meta-icon">👥</span>
@@ -50,50 +57,59 @@
             <div class="info-card">
               <h3 class="card-title">📜 挑战规则</h3>
               <ul class="rule-list">
-                <li>📷 必须为原创摄影作品</li>
-                <li>🚫 严禁使用 AI 生成或过度 PS</li>
-                <li>📍 需标注拍摄地点</li>
-                <li>⏰ 必须在截止时间前提交</li>
-                <li>🖼️ 只能上传一张图片</li>
+                <li v-for="(rule, idx) in realRules" :key="idx">
+                  📜 {{ rule }}
+                </li>
+                <li v-if="realRules.length === 0">暂无挑战规则</li>
               </ul>
             </div>
 
             <div class="action-card">
               <div class="action-info">
-                <div v-if="!hasJoined" class="info-row">
-                  <span class="info-label">名额剩余</span>
-                  <span class="info-value">{{ remainingSlots }}</span>
+                <div class="info-row">
+                  <span class="info-label">报名状态</span>
+                  <span :class="['info-value', applyStatusClass]">
+                    {{ applyStatusText }}
+                  </span>
                 </div>
-                <div v-else-if="!hasSubmittedWork" class="info-row">
-                  <span class="info-label">当前状态</span>
-                  <span class="info-value warning">待提交作品</span>
-                </div>
-                <div v-else class="info-row">
-                  <span class="info-label">当前状态</span>
-                  <span class="info-value success">✅ 已提交</span>
+                <div class="info-row">
+                  <span class="info-label">作品状态</span>
+                  <span :class="['info-value', hasSubmittedWork ? 'success' : 'warning']">
+                    {{ hasSubmittedWork ? '✅ 已提交' : '待提交' }}
+                  </span>
                 </div>
               </div>
 
-              <button v-if="challenge.status === 0" class="action-btn btn-disabled" disabled>
-                🔒 活动未开始
+              <button
+                  v-if="challenge.status === 0"
+                  class="action-btn btn-primary"
+                  @click="doApply"
+                  :disabled="isFull || [0, 1].includes(applyStatus)"
+              >
+                <span v-if="isFull">🚫 已满员</span>
+                <span v-else-if="applyStatus === 0">⏳ 待审核</span>
+                <span v-else-if="applyStatus === 1">✅ 已报名</span>
+                <span v-else>📝 立即报名</span>
               </button>
 
-              <button v-else-if="!hasJoined" class="action-btn btn-primary" @click="goSubmitWork" :disabled="isFull">
-                {{ isFull ? '🚫 已满员' : '🚀 立即报名并提交' }}
-              </button>
-
-              <button v-else-if="!hasSubmittedWork" class="action-btn btn-accent" @click="goSubmitWork">
-                📷 去提交作品
+              <button
+                  v-else-if="challenge.status === 1"
+                  class="action-btn btn-accent"
+                  @click="goSubmitWork"
+                  :disabled="applyStatus !== 1 || hasSubmittedWork"
+              >
+                <span v-if="hasSubmittedWork">✅ 已提交作品</span>
+                <span v-else>📷 去提交作品</span>
               </button>
 
               <button v-else class="action-btn btn-disabled" disabled>
-                ✅ 已完成
+                🔒 比赛已结束
               </button>
             </div>
           </section>
         </div>
 
-        <!-- 阶段二：评审/结果期 -->
+        <!-- 评审阶段 -->
         <div v-else class="phase-review">
           <header class="review-header">
             <span :class="['status-badge', getStatusClass(challenge.status)]">
@@ -103,9 +119,13 @@
             <p class="sub-text">
               {{ challenge.status === 2 ? '请为优秀的作品打分' : '比赛已结束，最终结果如下' }}
             </p>
+            <div class="review-time-bar" style="margin-top:15px;font-size:14px;color:#666;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+              <span>🟢 开始：{{ formatDate(challenge.startTime) }}</span>
+              <span>📅 截止：{{ formatDate(challenge.endTime) }}</span>
+              <span>🏁 评审结束：{{ formatDate(challenge.reviewEndTime) }}</span>
+            </div>
           </header>
 
-          <!-- 🏆 荣耀榜 -->
           <section class="podium-section">
             <h2 class="section-title">🌟 荣耀榜</h2>
             <div class="podium-container">
@@ -113,7 +133,6 @@
                 <div class="medal">🥈</div>
                 <div class="photo-frame">
                   <img :src="topSubmissions[1].authorAvatar || defaultCover" />
-                  <div class="score-badge">{{ topSubmissions[1].finalScore || 0 }}分</div>
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[1].title }}</div>
@@ -126,7 +145,6 @@
                 <div class="crown">👑</div>
                 <div class="photo-frame large">
                   <img :src="topSubmissions[0].authorAvatar || defaultCover" />
-                  <div class="score-badge highlight">{{ topSubmissions[0].finalScore || 0 }}分</div>
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[0].title }}</div>
@@ -138,7 +156,6 @@
                 <div class="medal">🥉</div>
                 <div class="photo-frame">
                   <img :src="topSubmissions[2].authorAvatar || defaultCover" />
-                  <div class="score-badge">{{ topSubmissions[2].finalScore || 0 }}分</div>
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[2].title }}</div>
@@ -148,7 +165,6 @@
             </div>
           </section>
 
-          <!-- 📸 参赛作品列表 -->
           <section class="all-works-section">
             <h2 class="section-title">
               📸 参赛作品
@@ -161,24 +177,20 @@
             </div>
 
             <div v-else-if="submissions.length > 0" class="works-grid">
-              <div v-for="item in submissions" :key="item.id" class="work-card">
+              <div
+                  v-for="item in submissions"
+                  :key="item.id"
+                  class="work-card"
+                  @click="openWorkDetail(item)"
+              >
                 <div class="work-img-box">
                   <img :src="item.coverUrl || defaultCover" loading="lazy" />
-                  <!-- ✅ 悬停时右下角浮现评分按钮 -->
-                  <transition name="fade-slide">
-                    <button v-if="canVote" class="float-vote" @click="openScoreModal(item)">
-                      <span>⚖️ 评分</span>
-                    </button>
-                  </transition>
-                  <div v-if="item.finalScore" class="final-score-tag">
-                    🏆 {{ item.finalScore }}分
-                  </div>
                 </div>
                 <div class="work-info">
                   <div class="w-title">{{ item.title }}</div>
                   <div class="w-meta">
                     <span class="w-user">📍 {{ item.location || '无地点' }}</span>
-                    <span class="w-score">{{ item.finalScore || 0 }}分</span>
+                    <span class="w-score">{{ Number(item.finalScore || 0).toFixed(2) }}分</span>
                   </div>
                 </div>
               </div>
@@ -193,303 +205,315 @@
       </div>
     </main>
 
-    <!-- 🔥 大评分弹窗 -->
-    <ScoreModal
-        :visible="showScoreModal"
-        :submission="currentSubmission"
-        @update:visible="showScoreModal = $event"
-        @submit="handleScoreSubmit"
-    />
+    <!-- 作品详情弹窗 -->
+    <div v-if="showWorkModal" class="score-modal-mask" @click="closeWorkModal">
+      <div class="score-modal" @click.stop>
+        <div class="score-left">
+          <img :src="currentWork?.coverUrl || defaultCover" alt="作品">
+        </div>
+        <div class="score-right">
+          <h3>作品评分详情</h3>
+
+          <div class="score-info">
+            <div class="info-item">
+              <label>最终得分</label>
+              <span>{{ Number(currentWork.finalScore || 0).toFixed(2) }} 分</span>
+            </div>
+            <div class="info-item">
+              <label>评分人数</label>
+              <span>{{ scoreList.length }} 人</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="score-history" v-if="scoreList.length">
+            <label>所有评委评分记录</label>
+            <div class="score-item" v-for="s in scoreList" :key="s.id">
+              <div class="score-header">
+                <span class="judge-name">{{ s.judgeName || '匿名评委' }}</span>
+                <span class="score-score">{{ s.score }} 分</span>
+              </div>
+              <div class="score-comment" v-if="s.comment">{{ s.comment }}</div>
+            </div>
+          </div>
+          <div v-else class="no-score-tip">暂无评分</div>
+
+          <button
+              class="score-btn"
+              v-if="canVote && !hasScored"
+              @click="openScorePanel"
+          >
+            我要打分
+          </button>
+          <button class="score-btn disabled" v-else>
+            {{ hasScored ? '✅ 已打分' : '🔒 不可打分' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 打分弹窗 -->
+    <div v-if="showScoreModal" class="score-modal-mask" @click="closeScoreModal">
+      <div class="score-modal" @click.stop>
+        <div class="score-left">
+          <img :src="currentWork?.coverUrl || defaultCover" alt="作品">
+        </div>
+        <div class="score-right">
+          <h3>评分</h3>
+          <div class="form-item">
+            <label>分数（0-100）</label>
+            <input v-model.number="scoreForm.score" type="number" min="0" max="100" placeholder="请输入分数" />
+          </div>
+          <div class="form-item">
+            <label>评语（可选）</label>
+            <textarea v-model="scoreForm.comment" placeholder="请输入评语"></textarea>
+          </div>
+          <div class="btn-group">
+            <button class="btn-cancel" @click="closeScoreModal">取消</button>
+            <button class="btn-submit" @click="doSubmitScore" :disabled="submitting">
+              {{ submitting ? '提交中...' : '提交评分' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import ChallengeDetailNavBar from "@/components/NavBar/ChallengeDetailNavBar.vue";
-import ScoreModal from "@/components/Challenge/ScoreModal.vue";
-import { getChallengeDetail, getChallengeSubmissions } from "@/api/challenge";
+import ChallengeDetailNavBar from '@/components/NavBar/ChallengeDetailNavBar.vue'
+import {
+  getChallengeDetail,
+  getChallengeSubmissions,
+  applyChallenge,
+  getApplyStatus,
+  submitScore,
+  getScoreList,
+  checkHasScored
+} from '@/api/challenge'
 
 export default {
-  name: "ChallengeDetail",
-  components: { ChallengeDetailNavBar, ScoreModal },
-
+  name: 'ChallengeDetail',
+  components: { ChallengeDetailNavBar },
   data() {
     return {
       loading: true,
       loadError: false,
-      errorMessage: '加载失败，请重试',
+      errorMessage: '加载失败',
 
       challenge: null,
       submissions: [],
       submissionsLoading: false,
 
-      currentUserAvatar: "http://localhost:9000/lumecho/avatar.png",
-      currentUserName: "摄影师",
-      defaultCover: "http://localhost:9000/lumecho/avatar.png",
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '摄影师',
+      defaultCover: 'http://localhost:9000/lumecho/avatar.png',
 
-      hasJoined: false,
+      applyStatus: null,
       hasSubmittedWork: false,
-      votedIds: [],
 
-      // 评分弹窗
+      showWorkModal: false,
+      currentWork: null,
+      scoreList: [],
+      hasScored: false,
+
       showScoreModal: false,
-      currentSubmission: null
-    };
+      scoreForm: {
+        submissionId: null,
+        score: null,
+        comment: ''
+      },
+      submitting: false
+    }
   },
-
   computed: {
     isActionPhase() {
-      if (!this.challenge) return false;
-      const status = Number(this.challenge.status);
-      return status === 0 || status === 1;
+      if (!this.challenge) return false
+      const s = Number(this.challenge.status)
+      return s === 0 || s === 1
     },
-
     canVote() {
-      const status = Number(this.challenge?.status);
-      return status === 2;
+      if (!this.challenge) return false
+      const s = Number(this.challenge.status)
+      return s === 2
     },
-
     isFull() {
-      if (!this.challenge) return false;
-      if (!this.challenge.maxParticipants) return false;
-      return this.challenge.participantCount >= this.challenge.maxParticipants;
+      if (!this.challenge?.maxParticipants) return false
+      return this.challenge.participantCount >= this.challenge.maxParticipants
     },
-
-    remainingSlots() {
-      if (!this.challenge) return 0;
-      if (!this.challenge.maxParticipants) return "∞";
-      return this.challenge.maxParticipants - this.challenge.participantCount;
-    },
-
     topSubmissions() {
-      if (!this.submissions.length) return [];
       return [...this.submissions]
           .sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))
-          .slice(0, 3);
+          .slice(0, 3)
+    },
+    realRules() {
+      if (!this.challenge?.rules) return []
+      try {
+        return JSON.parse(this.challenge.rules)
+      } catch {
+        return []
+      }
+    },
+    applyStatusText() {
+      const map = { 0: '待审核', 1: '已通过', 2: '已拒绝', 3: '已取消' }
+      return map[this.applyStatus] ?? '未报名'
+    },
+    applyStatusClass() {
+      if (this.applyStatus === 1) return 'success'
+      if (this.applyStatus === 2) return 'error'
+      if (this.applyStatus === 0) return 'warning'
+      if (this.applyStatus === 3) return 'canceled'
+      return ''
     }
   },
-
   mounted() {
-    const id = this.$route.params.id;
-    if (id) {
-      this.fetchDetail(id);
-    } else {
-      this.loading = false;
-      this.loadError = true;
-      this.errorMessage = '未找到挑战赛 ID';
-    }
+    const id = this.$route.params.id
+    if (id) this.fetchDetail(id)
   },
-
   methods: {
     async fetchDetail(id) {
       try {
-        this.loading = true;
-        this.loadError = false;
+        this.loading = true
+        const [res, statusRes] = await Promise.all([
+          getChallengeDetail(id),
+          getApplyStatus(id)
+        ])
+        const chal = this.getData(res)
+        if (!chal) throw new Error()
+        this.challenge = chal
+        this.challenge.status = Number(this.challenge.status)
 
-        const res = await getChallengeDetail(id);
+        const statusData = this.getData(statusRes) || {}
+        this.applyStatus = statusData.applyStatus ?? null
+        this.hasSubmittedWork = !!statusData.hasSubmitted
 
-        let code = res.code;
-        let data = res.data;
-
-        if (!code && res.data && res.data.code !== undefined) {
-          code = res.data.code;
-          data = res.data.data;
+        if ([2, 3].includes(this.challenge.status)) {
+          await this.fetchSubmissions(id)
         }
-
-        if (code === 200 || code === '200') {
-          this.challenge = data;
-
-          if (this.challenge.status !== undefined) {
-            this.challenge.status = Number(this.challenge.status);
-          }
-
-          if (!this.challenge.coverUrl) {
-            this.challenge.coverUrl = this.defaultCover;
-          }
-
-          if (!this.isActionPhase) {
-            this.fetchSubmissions(id);
-          }
-
-        } else {
-          throw new Error(res.message || '接口返回错误');
-        }
-
       } catch (e) {
-        console.error('获取挑战详情失败:', e);
-        this.loadError = true;
-        this.errorMessage = e.message || '网络请求失败';
+        this.loadError = true
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
-
-    async fetchSubmissions(challengeId) {
+    async fetchSubmissions(cid) {
       try {
-        this.submissionsLoading = true;
-
-        const res = await getChallengeSubmissions(challengeId);
-
-        let submissionsData = [];
-
-        if (Array.isArray(res)) {
-          submissionsData = res;
-        }
-        else if (res && (res.code === 200 || res.code === '200') && Array.isArray(res.data)) {
-          submissionsData = res.data;
-        }
-        else if (res && res.data && (res.data.code === 200 || res.data.code === '200') && Array.isArray(res.data.data)) {
-          submissionsData = res.data.data;
-        }
-        else if (res && Array.isArray(res.data)) {
-          submissionsData = res.data;
-        }
-        else {
-          submissionsData = [];
-        }
-
-        // 🔥 只给评分数据加假数据 (模拟其他评委的评分)
-        this.submissions = submissionsData.map((item, index) => ({
-          ...item,
-          coverUrl: item.coverUrl || this.defaultCover,
-          authorAvatar: item.authorAvatar || this.defaultCover,
-          finalScore: Number(item.finalScore) || 0,
-          // 假数据：模拟每个作品有 1-3 条其他评委的评分
-          scores: this.mockScores(index)
-        }));
-
+        this.submissionsLoading = true
+        const res = await getChallengeSubmissions(cid)
+        this.submissions = this.getData(res) || []
       } catch (e) {
-        console.error('获取作品列表失败:', e);
-        this.submissions = [];
+        this.submissions = []
       } finally {
-        this.submissionsLoading = false;
+        this.submissionsLoading = false
+      }
+    },
+    getData(res) {
+      if (!res) return null
+      if (res.code === 200) return res.data
+      if (res.data?.code === 200) return res.data.data
+      return null
+    },
+
+    async openWorkDetail(item) {
+      this.currentWork = item
+      this.showWorkModal = true
+      const sid = item.id
+
+      const [listRes, checkRes] = await Promise.all([
+        getScoreList(sid),
+        checkHasScored(sid)
+      ])
+
+      this.scoreList = this.getData(listRes) || []
+      this.hasScored = this.getData(checkRes) || false
+    },
+    closeWorkModal() {
+      this.showWorkModal = false
+      this.currentWork = null
+      this.scoreList = []
+      this.hasScored = false
+    },
+
+    openScorePanel() {
+      if (!this.canVote || this.hasScored) return
+      this.scoreForm.submissionId = this.currentWork.id
+      this.scoreForm.score = null
+      this.scoreForm.comment = ''
+      this.showScoreModal = true
+    },
+    closeScoreModal() {
+      this.showScoreModal = false
+    },
+
+    async doSubmitScore() {
+      const { score } = this.scoreForm
+      if (score == null || score < 0 || score > 100) {
+        return
+      }
+      try {
+        this.submitting = true
+        await submitScore(this.scoreForm)
+        this.closeScoreModal()
+        this.closeWorkModal()
+        await this.fetchSubmissions(this.challenge.id)
+      } catch (e) {
+        console.error('评分失败')
+      } finally {
+        this.submitting = false
       }
     },
 
-    // 🔥 假数据：模拟评委评分
-    mockScores(index) {
-      const mockComments = [
-        { judgeName: "评委老师 A", score: 9.5, comment: "构图非常棒，光影处理得很细腻！" },
-        { judgeName: "摄影师小王", score: 9.0, comment: "色彩很温柔，模特表现力很好" },
-        { judgeName: "资深评审", score: 8.5, comment: "创意不错，但后期可以再精细一些" },
-        { judgeName: "艺术总监", score: 9.8, comment: "非常有感觉的作品，喜欢！" }
-      ];
-
-      const count = Math.floor(Math.random() * 3) + 1;
-      const scores = [];
-
-      for (let i = 0; i < count; i++) {
-        const mock = mockComments[(index + i) % mockComments.length];
-        scores.push({
-          id: `mock-${index}-${i}`,
-          judgeName: mock.judgeName,
-          judgeAvatar: "http://localhost:9000/lumecho/avatar.png",
-          score: mock.score,
-          comment: mock.comment,
-          createTime: new Date(Date.now() - Math.random() * 86400000).toISOString()
-        });
+    async doApply() {
+      try {
+        await applyChallenge(this.challenge.id)
+        this.applyStatus = 0
+      } catch (e) {
+        console.error('报名失败')
       }
-
-      return scores;
-    },
-
-    // 🔥 打开评分弹窗
-    openScoreModal(item) {
-      this.currentSubmission = item;
-      this.showScoreModal = true;
-    },
-
-    // 🔥 【关键修改】提交评分处理
-    handleScoreSubmit(data) {
-      // 1. 更新本地数据列表（让分数即时显示）
-      const newScore = {
-        id: Date.now(),
-        judgeName: "我",
-        judgeAvatar: this.currentUserAvatar,
-        score: data.score,
-        comment: data.comment,
-        createTime: new Date().toISOString()
-      };
-
-      const submission = this.submissions.find(s => s.id === data.submissionId);
-      if (submission) {
-        if (!submission.scores) submission.scores = [];
-        submission.scores.unshift(newScore);
-
-        const total = submission.scores.reduce((sum, s) => sum + s.score, 0);
-        submission.finalScore = (total / submission.scores.length).toFixed(1);
-      }
-
-      // 2. 【删除了 alert】
-      // 3. 【删除了 this.showScoreModal = false】 -> 让子组件自己控制显示“成功状态”，不关闭弹窗
-
-      // 这里可以加一个全局提示（如果项目里有 ElementUI 或其他库），如果没有就不加，
-      // 因为子组件内部已经有漂亮的 Toast 了。
-      // 例如：this.$message.success('评分已提交');
-
-      console.log('评分提交成功，数据已更新，弹窗保持打开由子组件控制状态');
     },
 
     goSubmitWork() {
-      if (Number(this.challenge.status) === 0) {
-        // 这里可以用自定义 toast 替代 alert，或者保留 alert 也行，因为不是评分场景
-        alert("活动尚未开始");
-        return;
-      }
-      if (this.isFull) {
-        alert("报名已满");
-        return;
-      }
-      this.$router.push(`/challenge/${this.challenge.id}/submit`);
+      this.$router.push(`/challenge/${this.challenge.id}/submit`)
     },
-
     goProfile() {
-      this.$router.push("/profile");
+      this.$router.push('/profile')
     },
-
     goBack() {
-      this.$router.push("/activity");
+      this.$router.push('/activity')
     },
-
     retry() {
-      const id = this.$route.params.id;
-      if (id) {
-        this.fetchDetail(id);
-      }
+      this.fetchDetail(this.$route.params.id)
     },
 
-    getStatusClass(status) {
-      const s = Number(status);
-      if (s === 0) return "status-gray";
-      if (s === 1) return "status-active";
-      if (s === 2) return "status-review";
-      if (s === 3) return "status-ended";
-      return "";
+    getStatusClass(s) {
+      s = Number(s)
+      if (s === 0) return 'status-gray'
+      if (s === 1) return 'status-active'
+      if (s === 2) return 'status-review'
+      if (s === 3) return 'status-ended'
+      return ''
     },
-
-    getStatusText(status) {
-      const map = { 0: "未开始", 1: "进行中", 2: "评审中", 3: "已结束" };
-      return map[status] || "未知";
+    getStatusText(s) {
+      const m = { 0: '未开始', 1: '进行中', 2: '评审中', 3: '已结束' }
+      return m[Number(s)] || '未知'
     },
-
     formatDate(time) {
-      if (!time) return "";
-      const d = new Date(time);
-      return `${d.getMonth() + 1}/${d.getDate()}`;
+      if (!time) return ''
+      const d = new Date(time)
+      return `${d.getMonth() + 1}/${d.getDate()}`
     }
   }
-};
+}
 </script>
 
 <style scoped>
-/* ... (保持你原有的 style 不变，这里省略以节省空间，直接复制你原来的 style 部分即可) ... */
-/* 基础样式 */
 .challenge-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #F8F5FA 0%, #F0E8F5 50%, #FFFFFF 100%);
   font-family: 'Nunito', sans-serif;
-  color: #333333;
+  color: #333;
 }
-
 .content-area {
   max-width: 1000px;
   margin: 0 auto;
@@ -505,8 +529,10 @@ export default {
   font-size: 1.2rem;
   color: #666;
 }
-
-.cute-loader, .error-icon { font-size: 4rem; margin-bottom: 20px; }
+.cute-loader, .error-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
 .retry-btn, .back-btn {
   margin-top: 10px;
   padding: 10px 30px;
@@ -515,19 +541,24 @@ export default {
   font-weight: 700;
   cursor: pointer;
 }
-.retry-btn { background: #8E24AA; color: #FFF; }
-.back-btn { background: #EEEEEE; color: #333333; }
+.retry-btn {
+  background: #8E24AA;
+  color: #fff;
+}
+.back-btn {
+  background: #eee;
+  color: #333;
+}
 
 .status-badge {
   font-size: 12px;
   font-weight: 800;
   padding: 6px 14px;
   border-radius: 12px;
-  display: inline-block;
   margin-bottom: 15px;
 }
 .status-active { background: #E8F5E9; color: #2E7D32; }
-.status-gray { background: #F5F5F5; color: #757575; }
+.status-gray { background: #f5f5f5; color: #757575; }
 .status-review { background: #E3F2FD; color: #1565C0; }
 .status-ended { background: #FFF3E0; color: #E65100; }
 
@@ -537,42 +568,33 @@ export default {
   overflow: hidden;
   margin-bottom: 30px;
   box-shadow: 0 4px 20px rgba(106, 27, 154, 0.08);
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eee;
 }
 .hero-cover {
   width: 100%;
   height: 400px;
-  position: relative;
 }
 .hero-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
-}
 .hero-content {
   padding: 30px;
-  position: relative;
   margin-top: -100px;
-  color: #FFFFFF;
+  color: #fff;
   text-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .hero-title {
   font-size: 2rem;
   font-weight: 900;
   margin: 10px 0;
-  color: #FFFFFF;
 }
 .hero-desc {
   font-size: 1rem;
   opacity: 0.95;
   line-height: 1.6;
   margin-bottom: 20px;
-  color: #FFFFFF;
 }
 .hero-meta {
   display: flex;
@@ -585,9 +607,10 @@ export default {
   gap: 8px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #FFFFFF;
 }
-.meta-icon { font-size: 1.2rem; }
+.meta-icon {
+  font-size: 1.2rem;
+}
 
 .info-section {
   display: grid;
@@ -596,20 +619,21 @@ export default {
   margin-bottom: 30px;
 }
 @media (max-width: 768px) {
-  .info-section { grid-template-columns: 1fr; }
+  .info-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 .info-card, .action-card {
-  background: #FFFFFF;
+  background: #fff;
   border-radius: 24px;
   padding: 25px;
   box-shadow: 0 4px 20px rgba(106, 27, 154, 0.08);
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eee;
 }
 .card-title {
   font-size: 1.2rem;
   font-weight: 800;
-  color: #333333;
   margin: 0 0 15px 0;
 }
 .rule-list {
@@ -619,24 +643,37 @@ export default {
 }
 .rule-list li {
   padding: 8px 0;
-  border-bottom: 1px dashed #EEEEEE;
+  border-bottom: 1px dashed #eee;
   font-size: 0.95rem;
-  color: #555555;
+  color: #555;
 }
-.rule-list li:last-child { border-bottom: none; }
+.rule-list li:last-child {
+  border-bottom: none;
+}
 
-.action-info { margin-bottom: 20px; }
+.action-info {
+  margin-bottom: 20px;
+}
 .info-row {
   display: flex;
   justify-content: space-between;
   padding: 10px 0;
-  border-bottom: 1px solid #EEEEEE;
+  border-bottom: 1px solid #eee;
 }
-.info-row:last-child { border-bottom: none; }
-.info-label { color: #999999; font-size: 0.9rem; }
-.info-value { font-weight: 700; color: #333333; }
-.info-value.warning { color: #F9A825; }
+.info-row:last-child {
+  border-bottom: none;
+}
+.info-label {
+  color: #999;
+  font-size: 0.9rem;
+}
+.info-value {
+  font-weight: 700;
+}
 .info-value.success { color: #2E7D32; }
+.info-value.error { color: #f44336; }
+.info-value.warning { color: #F9A825; }
+.info-value.canceled { color: #9E9E9E; }
 
 .action-btn {
   width: 100%;
@@ -650,19 +687,27 @@ export default {
 }
 .btn-primary {
   background: linear-gradient(135deg, #AB47BC, #8E24AA);
-  color: #FFFFFF;
+  color: #fff;
   box-shadow: 0 4px 15px rgba(142, 36, 170, 0.3);
 }
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(142, 36, 170, 0.4);
 }
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .btn-accent {
   background: linear-gradient(135deg, #BA68C8, #CE93D8);
-  color: #FFFFFF;
+  color: #fff;
+}
+.btn-accent:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .btn-disabled {
-  background: #F5F5F5;
+  background: #f5f5f5;
   color: #9E9E9E;
   cursor: not-allowed;
 }
@@ -674,27 +719,25 @@ export default {
 }
 .page-title {
   font-size: 2rem;
-  color: #333333;
   margin: 10px 0;
   font-weight: 900;
 }
 .sub-text {
-  color: #666666;
+  color: #666;
   font-size: 1rem;
 }
 
 .podium-section {
   margin-bottom: 50px;
-  background: #FFFFFF;
+  background: #fff;
   border-radius: 24px;
   padding: 30px;
   box-shadow: 0 4px 20px rgba(106, 27, 154, 0.08);
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eee;
 }
 .section-title {
   text-align: center;
   font-size: 1.5rem;
-  color: #333333;
   margin-bottom: 30px;
   font-weight: 800;
 }
@@ -704,7 +747,6 @@ export default {
   color: #2E7D32;
   padding: 4px 10px;
   border-radius: 20px;
-  vertical-align: middle;
   margin-left: 10px;
 }
 
@@ -716,7 +758,6 @@ export default {
   padding: 20px;
   min-height: 350px;
 }
-
 .podium-item {
   display: flex;
   flex-direction: column;
@@ -725,140 +766,103 @@ export default {
   transition: transform 0.3s ease;
   width: 160px;
 }
-
 .podium-item:hover {
   transform: scale(1.05);
 }
-
 .medal {
   font-size: 3rem;
   margin-bottom: -10px;
   z-index: 2;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2));
 }
-
 .crown {
   position: absolute;
   top: -35px;
   font-size: 2.5rem;
-  animation: float 2s infinite ease-in-out;
+  animation: float 2s infinite;
   z-index: 3;
 }
-
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
+  0%,100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
 }
-
 .photo-frame {
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  border: 5px solid #FFFFFF;
-  box-shadow: 0 8px 20px rgba(106, 27, 154, 0.15);
+  border: 5px solid #fff;
+  box-shadow: 0 8px 20px rgba(106,27,154,0.15);
   overflow: hidden;
-  background: #F5F5F5;
+  background: #f5f5f5;
   position: relative;
   flex-shrink: 0;
 }
-
 .photo-frame.large {
   width: 180px;
   height: 180px;
   border-width: 8px;
   border-color: #FFD93D;
 }
-
 .photo-frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
-.score-badge {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #FFFFFF;
-  font-size: 0.8rem;
-  padding: 4px 8px;
-  border-radius: 10px;
-  font-weight: 700;
-}
-
-.score-badge.highlight {
-  background: #FFD93D;
-  color: #333333;
-  font-size: 1rem;
-}
-
 .user-info {
   margin-top: 15px;
   text-align: center;
-  background: #FFFFFF;
+  background: #fff;
   padding: 10px 15px;
   border-radius: 20px;
-  box-shadow: 0 4px 10px rgba(106, 27, 154, 0.1);
+  box-shadow: 0 4px 10px rgba(106,27,154,0.1);
   width: 100%;
 }
-
 .name {
   font-weight: 800;
-  color: #333333;
   font-size: 0.95rem;
 }
-
 .work-title {
   font-size: 0.85rem;
-  color: #999999;
+  color: #999;
   margin-top: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 120px;
-  margin-left: auto;
-  margin-right: auto;
 }
-
 .rank-2 { order: 1; margin-bottom: 40px; }
 .rank-1 { order: 2; margin-bottom: 0; z-index: 10; }
 .rank-3 { order: 3; margin-bottom: 40px; }
 
 .all-works-section {
-  background: #FFFFFF;
+  background: #fff;
   border-radius: 24px;
   padding: 30px;
   box-shadow: 0 4px 20px rgba(106, 27, 154, 0.08);
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eee;
 }
-
 .works-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 25px;
 }
-
 .work-card {
-  background: #FFFFFF;
+  background: #fff;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(106, 27, 154, 0.08);
-  border: 1px solid #EEEEEE;
+  box-shadow: 0 4px 15px rgba(106,27,154,0.08);
+  border: 1px solid #eee;
   transition: transform 0.3s ease;
+  cursor: pointer;
 }
-
 .work-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(106, 27, 154, 0.15);
+  box-shadow: 0 10px 25px rgba(106,27,154,0.15);
 }
-
 .work-img-box {
   position: relative;
   padding-top: 100%;
-  background: #F5F5F5;
+  background: #f5f5f5;
 }
-
 .work-img-box img {
   position: absolute;
   inset: 0;
@@ -866,85 +870,190 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-
-/* ✅ 悬停时右下角浮现评分按钮 */
-.float-vote {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #8E24AA;
-  border: 2px solid #8E24AA;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(142, 36, 170, 0.3);
-  backdrop-filter: blur(5px);
-  transition: all 0.3s ease;
-  opacity: 0;
-  transform: translateY(10px);
+.work-info {
+  padding: 15px;
 }
-
-.work-card:hover .float-vote {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.float-vote:hover {
-  background: #AB47BC;
-  color: #FFF;
-}
-
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.final-score-tag {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #FFD93D;
-  color: #333333;
-  padding: 5px 10px;
-  border-radius: 10px;
-  font-weight: 800;
-  font-size: 0.9rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.work-info { padding: 15px; }
 .w-title {
   font-weight: 800;
   font-size: 1rem;
   margin-bottom: 5px;
-  color: #333333;
 }
 .w-meta {
   display: flex;
   justify-content: space-between;
   font-size: 0.85rem;
-  color: #999999;
+  color: #999;
 }
 .w-score {
   color: #8E24AA;
   font-weight: 700;
 }
-
 .empty-state {
   text-align: center;
   padding: 60px 0;
-  color: #999999;
+  color: #999;
 }
-.empty-icon { font-size: 4rem; margin-bottom: 20px; }
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+/* 弹窗 */
+.score-modal-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.score-modal {
+  width: 90%;
+  max-width: 800px;
+  background: #fff;
+  border-radius: 20px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+.score-left {
+  flex: 1;
+  background: #f4f4f4;
+}
+.score-left img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.score-right {
+  width: 360px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.score-right h3 {
+  margin: 0 0 10px 0;
+  font-size: 20px;
+}
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-item label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+.form-item input,
+.form-item textarea {
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 15px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-item textarea {
+  min-height: 100px;
+  resize: none;
+}
+.btn-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+.btn-cancel {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-submit {
+  flex: 2;
+  padding: 12px;
+  background: #8e24aa;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-submit:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+.score-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+}
+.divider {
+  height: 1px;
+  background: #eee;
+  margin: 10px 0;
+}
+.score-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.score-item {
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.score-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.judge-name {
+  font-weight: 700;
+  color: #333;
+}
+.score-score {
+  font-weight: 700;
+  color: #8e24aa;
+}
+.score-comment {
+  color: #666;
+  padding-left: 4px;
+}
+.no-score-tip {
+  color: #999;
+  font-size: 14px;
+}
+.score-btn {
+  width: 100%;
+  padding: 12px;
+  background: #8e24aa;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.score-btn.disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
 
 @media (max-width: 768px) {
   .hero-title { font-size: 1.5rem; }

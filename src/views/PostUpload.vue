@@ -196,7 +196,7 @@ import UploadNavBar from '@/components/NavBar/UploadNavBar.vue';
 import { getCurrentUserInfo } from "@/api/auth";
 import { getAllCategories } from '@/api/category'
 import { uploadFile } from "@/api/file"
-
+import { aiPolish } from "@/api/ai"
 export default {
   name: "PostUpload",
   components: { UploadNavBar },
@@ -378,13 +378,29 @@ export default {
     },
 
     async generateAIDescription() {
-      if(!this.form.content.trim()) {
-        this.form.content = "✨ AI 正在思考中...";
+      const originalText = this.form.content.trim()
+
+      if (!originalText) {
+        this.showToast('先写点文字我再帮你润色哦～', 'warning')
+        return
       }
-      setTimeout(() => {
-        this.form.content = "光影在这一刻凝固，仿佛时间也停止了流动。这不仅仅是一张照片，更是我对这个世界独特的观察与感悟。";
-        this.showToast("AI 脑洞大开，润色完成！✨", 'success');
-      }, 1000);
+
+      // 加载中
+      this.form.content = "✨ AI 正在努力润色中，请稍等..."
+
+      try {
+        // 调用后端 AI 接口
+        const res = await aiPolish(originalText)
+
+        // 把润色后的内容回填
+        this.form.content = res.data
+
+        this.showToast('✅ 润色完成啦！', 'success')
+      } catch (err) {
+        console.error(err)
+        this.form.content = originalText
+        this.showToast('😭 AI 润色失败了', 'error')
+      }
     },
 
     scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); },

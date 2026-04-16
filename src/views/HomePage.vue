@@ -53,7 +53,6 @@
               :class="{ active: selectedCategoryId === cat.id }"
               @click="selectCategory(cat)"
           >
-            <!-- ✅ 修改：使用 cat.name 匹配图标 -->
             <span class="cat-icon">{{ categoryIconMap[cat.name] || defaultIcon }}</span>
             {{ cat.name }}
           </span>
@@ -116,7 +115,6 @@
             </div>
 
             <div class="card-footer">
-              <!-- ✅ 修改：使用 post.category (名称) 匹配图标 -->
               <span class="category-badge">
                 {{ categoryIconMap[post.category] || '🏷️' }} {{ post.category || '综合' }}
               </span>
@@ -139,6 +137,42 @@
         <p>暂无内容，快去发布第一篇吧！📝</p>
       </div>
     </main>
+
+    <!-- ========================================== -->
+    <!-- 🔥 一进页面就弹出：完善资料弹窗 🔥 -->
+    <!-- ========================================== -->
+    <transition name="modal-fade">
+      <div v-if="showCompleteProfileModal" class="modal-overlay" @click.self="closeModal">
+        <div class="modal-card">
+          <div class="modal-header">
+            <span class="modal-icon">✨</span>
+            <h3 class="modal-title">完善你的个人资料</h3>
+            <p class="modal-subtitle">设置昵称和头像，让大家认识你吧～</p>
+          </div>
+
+          <div class="modal-body">
+            <div class="tip-item">
+              <span class="tip-icon">1.</span>
+              <span>设置一个好听的昵称</span>
+            </div>
+            <div class="tip-item">
+              <span class="tip-icon">2.</span>
+              <span>上传专属头像，更有辨识度</span>
+            </div>
+            <div class="tip-item">
+              <span class="tip-icon">3.</span>
+              <span>完整资料更受大家欢迎</span>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn-later" @click="closeModal">稍后再说</button>
+            <button class="btn-go" @click="goToProfileEdit">立即完善</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
   </div>
 </template>
 
@@ -157,15 +191,13 @@ export default {
       currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
 
-      // ✨ 核心状态：搜索关键词
+      // ✨ 弹窗控制
+      showCompleteProfileModal: false,
+
       searchQuery: '',
-
-      activeTab: 'latest',          // 'latest' | 'hot'
-      selectedCategoryId: null,     // null 表示全部
-
+      activeTab: 'latest',
+      selectedCategoryId: null,
       categoryList: [],
-
-      // ✅ 修改：使用名称映射图标，不再依赖 ID
       categoryIconMap: {
         '日常': '🏠',
         '技术': '💻',
@@ -175,14 +207,12 @@ export default {
         '摄影': '📸',
         '综合': '🏷️'
       },
-      defaultIcon: '📁', // 默认图标
-
+      defaultIcon: '📁',
       posts: [],
       hasMore: true,
       loading: false,
       offset: 0,
       limit: 8,
-
       defaultCover: 'http://localhost:9000/lumecho/cover.png',
       defaultAvatar: 'http://localhost:9000/lumecho/avatar.png'
     };
@@ -226,11 +256,9 @@ export default {
       this.resetList();
     },
 
-    // ✨ 处理搜索事件 (支持回车触发)
     handleSearch(query) {
       this.searchQuery = query || '';
       this.resetList();
-
       if (this.searchQuery) {
         ElMessage.success(`正在搜索 "${this.searchQuery}"...`);
       } else {
@@ -238,7 +266,6 @@ export default {
       }
     },
 
-    // ✨ 清除搜索
     clearSearch() {
       this.searchQuery = '';
       this.resetList();
@@ -267,10 +294,8 @@ export default {
       }
       const originalLiked = post.isLiked;
       const originalCount = post.likes;
-
       post.isLiked = !originalLiked;
       post.likes = originalLiked ? originalCount - 1 : originalCount + 1;
-
       try {
         await toggleLike(post.id);
       } catch (error) {
@@ -306,34 +331,60 @@ export default {
           this.currentUserName = data.username || this.currentUserName;
         }
       } catch (e) {
-        // 未登录或错误时保持默认
+        /* 忽略用户未登录异常 */
+      }
+
+      this.checkUserProfileComplete();
+    },
+
+
+    // ==========================================
+    // 🔥 核心：检查资料是否完整
+    // ==========================================
+    checkUserProfileComplete() {
+      const token = localStorage.getItem('user_token');
+      if (!token) return;
+
+      // 不完整 → 弹窗
+      if (
+          !this.currentUserName ||
+          this.currentUserName === '神秘摄影师' ||
+          this.currentUserAvatar === 'http://localhost:9000/lumecho/avatar.png'
+      ) {
+        setTimeout(() => {
+          this.showCompleteProfileModal = true;
+        }, 500);
       }
     },
 
-    // ✨ 核心请求逻辑
+    // 关闭弹窗
+    closeModal() {
+      this.showCompleteProfileModal = false;
+    },
+
+    // 去编辑资料页
+    goToProfileEdit() {
+      this.closeModal();
+      this.$router.push('/profile/edit');
+    },
+
     async fetchPosts() {
       if (this.loading) return;
       this.loading = true;
-
       try {
         const sortParam = this.activeTab === 'latest' ? 'time' : 'hot';
-
         const params = {
           sort: sortParam,
           offset: this.offset,
           limit: this.limit,
           keyword: this.searchQuery ? this.searchQuery : undefined,
         };
-
         if (this.selectedCategoryId !== null) {
           params.categoryId = this.selectedCategoryId;
         }
-
         const res = await getHomePosts(params);
         const responseData = res.data.code === 200 ? res.data.data : res.data;
         let newPosts = responseData.data || [];
-
-        // 数据格式化
         newPosts = newPosts.map(item => ({
           ...item,
           avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
@@ -347,8 +398,6 @@ export default {
           timeAgo: item.timeAgo || '刚刚',
           isLiked: false
         }));
-
-        // 批量获取点赞状态
         const token = localStorage.getItem('user_token');
         if (token && newPosts.length > 0) {
           try {
@@ -357,7 +406,6 @@ export default {
             let likeMap = {};
             const sData = statusRes.data.code === 200 ? statusRes.data.data : statusRes.data;
             if (sData) likeMap = sData;
-
             newPosts.forEach(post => {
               const idStr = String(post.id);
               if (likeMap[idStr] === true) {
@@ -368,17 +416,13 @@ export default {
             console.warn("获取点赞状态失败", likeErr);
           }
         }
-
         this.hasMore = responseData.hasMore || (newPosts.length >= this.limit);
-
         if (this.offset === 0) {
           this.posts = newPosts;
         } else {
           this.posts = [...this.posts, ...newPosts];
         }
-
         this.offset += newPosts.length;
-
       } catch (e) {
         console.error("加载帖子失败", e);
         this.hasMore = false;
@@ -695,7 +739,88 @@ export default {
   cursor: not-allowed;
   transform: none;
 }
-.no-more { margin-top: 50px; text-align: center; color: #90A4AE; font-size: 15px; font-weight: 600; }
+.no-more { margin-top: 50px; text-align: center; color: #90A4AE; font-weight: 600; }
+
+/* ========================================== */
+/* 🔥 完善资料弹窗样式 🔥 */
+/* ========================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-card {
+  width: 90%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  animation: modalSlide 0.35s ease;
+}
+@keyframes modalSlide {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header { margin-bottom: 20px; }
+.modal-icon { font-size: 48px; margin-bottom: 12px; }
+.modal-title { font-size: 22px; font-weight: 800; color: #2E7D32; margin: 0; }
+.modal-subtitle { font-size: 14px; color: #888; margin-top: 6px; }
+
+.modal-body { margin-bottom: 28px; text-align: left; }
+.tip-item {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  color: #555;
+  margin-bottom: 10px;
+}
+.tip-icon {
+  margin-right: 10px;
+  font-weight: 700;
+  color: #4CAF50;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+}
+.btn-later {
+  flex: 1;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #eee;
+  background: #f9f9f9;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+}
+.btn-go {
+  flex: 1;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #81C784, #4DB6AC);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
 
 /* 移动端适配 */
 @media (max-width: 900px) {

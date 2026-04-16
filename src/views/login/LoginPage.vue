@@ -169,7 +169,8 @@ export default {
           const role = res.data.data.role;
           localStorage.setItem('user_token', token);
           localStorage.setItem('user_role', role);
-          setTimeout(()=>{ this.$router.push("/home") },1000)
+          const targetPath = (role === 'ADMIN') ? '/admin' : '/home';
+          setTimeout(()=>{ this.$router.push(targetPath) },1000)
         }else{
           const data = res.data;
           this.message = data.data ? Object.values(data.data)[0] : (data.message || "登录失败");

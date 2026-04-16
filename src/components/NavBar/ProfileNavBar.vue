@@ -14,7 +14,22 @@
 
     <!-- 右侧操作区 -->
     <div class="nav-right">
-      <!-- ✅ 场景 1: 是自己的主页 -> 显示“编辑资料” -->
+
+      <!-- 🔥 AI 摄影师咨询：只在他人主页显示 -->
+      <button
+          v-if="!isMe"
+          class="action-btn ai-chat-mode"
+          @click="goAIChat"
+      >
+        <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L2 21l2.1-6.3a8.38 8.38 0 0 1 .9-3.8 8.5 8.5 0 0 1 7.6-4.7 8.38 8.38 0 0 1 3.8.9z"></path>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+        </svg>
+        <span class="btn-text">摄影师咨询</span>
+      </button>
+
+      <!-- 编辑资料 -->
       <button v-if="isMe" class="action-btn edit-mode" @click="handleEdit">
         <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -23,30 +38,25 @@
         <span class="btn-text">编辑资料</span>
       </button>
 
-      <!-- ✅ 场景 2: 是他人的主页 -> 显示“关注”或“已关注” -->
+      <!-- 关注按钮 -->
       <button
           v-else
           class="action-btn follow-mode"
           :class="{ 'is-following': isFollowed }"
           @click="handleFollow"
           :disabled="actionLoading"
-          title="关注 TA"
       >
-        <!-- 未关注时显示 + 号 -->
         <svg v-if="!isFollowed" class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-
-        <!-- 已关注时显示 √ 号 -->
         <svg v-else class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-
         <span class="btn-text">{{ isFollowed ? '已关注' : '关注' }}</span>
       </button>
 
-      <!-- 用户信息区域 (头像 + 名字) -->
+      <!-- 用户信息 -->
       <div class="user-info" @click="$emit('profile')">
         <span class="user-name">{{ userName }}</span>
         <div class="user-avatar">
@@ -64,9 +74,7 @@ export default {
     userAvatar: { type: String, default: '' },
     userName: { type: String, default: '用户' },
     isMe: { type: Boolean, default: true },
-    // 🔥 新增：接收是否已关注的状态
     isFollowed: { type: Boolean, default: false },
-    // 🔥 新增：接收加载状态，防止重复点击
     actionLoading: { type: Boolean, default: false }
   },
   emits: ['edit', 'follow', 'profile'],
@@ -74,12 +82,16 @@ export default {
     goHome() {
       this.$router.push('/home');
     },
+    // 🔥 进入 AI 摄影师咨询页面（带摄影师ID）
+    goAIChat() {
+      const photographerId = this.$route.params.id;
+      this.$router.push(`/ai/chat/${photographerId}`);
+    },
     handleEdit() {
       this.$emit('edit');
     },
     handleFollow() {
       if (this.actionLoading) return;
-      // 抛出事件给父组件 (UserProfile) 处理具体逻辑
       this.$emit('follow');
     }
   }
@@ -87,7 +99,6 @@ export default {
 </script>
 
 <style scoped>
-/* --- Navbar 基础样式 --- */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -98,13 +109,11 @@ export default {
   z-index: 1000;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid #FFE5D9;
   box-shadow: 0 4px 20px rgba(255, 183, 178, 0.1);
   transition: all 0.3s ease;
 }
 
-/* Logo */
 .nav-left { flex: 1; }
 .lumecho-logo-small {
   font-size: 1.5rem;
@@ -116,9 +125,8 @@ export default {
   user-select: none;
 }
 .lumecho-logo-small:hover { transform: scale(1.05) rotate(-2deg); }
-.lumecho-logo-small span { color: #6C63FF; -webkit-text-fill-color: #6C63FF; }
+.lumecho-logo-small span { color: #6C63FF; }
 
-/* 中间装饰 */
 .nav-center-decoration {
   flex: 2;
   text-align: center;
@@ -129,8 +137,6 @@ export default {
 .deco-text {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #CCAAB8;
-  letter-spacing: 1px;
   background: linear-gradient(90deg, #FF8E8E, #CCAAB8, #FF8E8E);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -140,7 +146,6 @@ export default {
 @keyframes shine { to { background-position: 200% center; } }
 @media (max-width: 768px) { .deco-text { display: none; } }
 
-/* 右侧区域 */
 .nav-right {
   flex: 1;
   display: flex;
@@ -149,7 +154,6 @@ export default {
   gap: 16px;
 }
 
-/* --- 按钮通用样式 --- */
 .action-btn {
   display: flex;
   align-items: center;
@@ -162,35 +166,24 @@ export default {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
-  position: relative;
-  overflow: hidden;
 }
+.btn-icon { transition: transform 0.3s; }
+.action-btn:hover .btn-icon { transform: scale(1.2) rotate(10deg); }
+.action-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-.btn-icon {
-  transition: transform 0.3s;
-}
-.action-btn:hover .btn-icon {
-  transform: scale(1.2) rotate(10deg);
-}
-.action-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* ✅ 编辑资料按钮 (黑色系) */
+/* 编辑按钮 */
 .edit-mode {
   background: #222;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 .edit-mode:hover {
   background: #000;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
 }
 
-/* ✅ 关注按钮 (默认：粉色渐变) */
+/* 关注按钮 */
 .follow-mode {
   background: linear-gradient(135deg, #FF8E8E 0%, #FF6B6B 100%);
   color: #fff;
@@ -201,11 +194,6 @@ export default {
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 16px rgba(255, 107, 107, 0.45);
 }
-.follow-mode:active {
-  transform: scale(0.95);
-}
-
-/* ✅ 已关注状态 (白色底 + 灰字/粉边) */
 .follow-mode.is-following {
   background: #fff;
   color: #FF6B6B;
@@ -216,10 +204,20 @@ export default {
   background: #FFF0F5;
   border-color: #FF5252;
   color: #FF5252;
-  transform: translateY(-2px);
 }
 
-/* 用户信息 */
+/* 🔥 AI 咨询按钮 */
+.action-btn.ai-chat-mode {
+  background: linear-gradient(135deg, #7B61FF 0%, #6C63FF 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(123, 97, 255, 0.25);
+}
+.action-btn.ai-chat-mode:hover {
+  background: linear-gradient(135deg, #6C63FF 0%, #5951FF 100%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(123, 97, 255, 0.35);
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -229,23 +227,18 @@ export default {
   cursor: pointer;
   transition: all 0.3s;
   margin-left: 8px;
-  background: transparent;
 }
 .user-info:hover {
   background: rgba(255, 142, 142, 0.08);
-  padding-left: 8px;
 }
 .user-name {
   font-size: 14px;
   font-weight: 600;
   color: #555;
-  white-space: nowrap;
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.3s;
 }
-.user-info:hover .user-name { color: #FF8E8E; }
 .user-avatar {
   width: 36px;
   height: 36px;
@@ -258,11 +251,8 @@ export default {
 }
 .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-/* --- 移动端适配 --- */
 @media (max-width: 768px) {
   .navbar { padding: 12px 20px; }
-
-  /* 移动端只显示图标，隐藏文字 */
   .btn-text { display: none; }
   .action-btn {
     padding: 8px;
@@ -271,9 +261,7 @@ export default {
     height: 40px;
     justify-content: center;
   }
-
   .user-name { display: none; }
   .user-avatar { width: 32px; height: 32px; }
-  .nav-right { gap: 12px; }
 }
 </style>
