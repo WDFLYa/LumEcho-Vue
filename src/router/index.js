@@ -18,7 +18,7 @@ import SubmissionCreate from '@/views/SubmissionCreate.vue'
 import AiChat from '@/views/AiChat.vue'
 import ActivityDetail from '@/views/ActivityDetail.vue'
 import ActivityCreate from '@/views/ActivityCreate.vue'
-
+import PostManage from '@/views/PostManage.vue'
 const routes = [
     {
         path: '/',
@@ -122,8 +122,13 @@ const routes = [
         path: '/activity/create',
         name: 'ActivityCreate',
         component: ActivityCreate
+    },
+    {
+        path: "/admin/posts",
+        name: "PostManage",
+        component: PostManage,
+        meta: { title: "帖子管理" }
     }
-
 ]
 
 const router = createRouter({

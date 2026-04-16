@@ -36,7 +36,7 @@
             <p>{{ mod.desc }}</p>
             <div class="module-stat">
               <span class="stat-value">{{ mod.count }}</span>
-              <span class="stat-label">{{ mod.statLabel }}</span>
+              <span class="stat-label">{{ statLabel }}</span>
             </div>
           </div>
 
@@ -51,7 +51,7 @@
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
 
 export default {
-  name: "AdminHome", // ⭐ 与 router 中的 component 名称保持一致
+  name: "AdminHome",
   components: { AdminNavBar },
   data() {
     return {
@@ -60,17 +60,15 @@ export default {
       currentDate: new Date().toLocaleDateString('zh-CN', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       }),
-      // ⭐ route 字段已严格对齐你提供的 router 配置
+      // 可视化分析已放到最后一位
       modules: [
         { id: 1, name: '用户管理', desc: '管理注册用户、权限分配与状态监控', icon: '👥', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', count: 1248, statLabel: '活跃用户', route: '/admin/users' },
         { id: 2, name: '摄影师认证管理', desc: '审核资质、管理认证状态与作品集', icon: '📸', gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', count: 15, statLabel: '待审核', route: '/admin/photographers' },
-
-        // 以下为预留模块，后续在 router 中添加对应 path 后即可直接点击跳转
-        { id: 3, name: '预约管理', desc: '处理拍摄预约、日程排期与确认', icon: '📅', gradient: 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)', count: 89, statLabel: '进行中', route: '/admin/appointments' },
-        { id: 4, name: '活动管理', desc: '发布线下活动、报名管理与签到统计', icon: '🎉', gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', count: 6, statLabel: '已发布', route: '/admin/events' },
-        { id: 5, name: '比赛管理', desc: '摄影赛事发布、作品征集与评审', icon: '🏆', gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', count: 3, statLabel: '进行中', route: '/admin/competitions' },
-        { id: 6, name: '咨询管理', desc: '处理用户留言、工单分配与回复跟踪', icon: '💬', gradient: 'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)', count: 42, statLabel: '待处理', route: '/admin/inquiries' },
-        { id: 7, name: '视频管理', desc: '上传、审核、分类与发布视频内容', icon: '🎬', gradient: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)', count: 156, statLabel: '已上架', route: '/admin/videos' },
+        { id: 3, name: '活动管理', desc: '发布线下活动、报名管理与签到统计', icon: '🎉', gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', count: 6, statLabel: '已发布', route: '/admin/events' },
+        { id: 4, name: '比赛管理', desc: '摄影赛事发布、作品征集与评审', icon: '🏆', gradient: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', count: 3, statLabel: '进行中', route: '/admin/competitions' },
+        { id: 5, name: '咨询管理', desc: '处理用户留言、工单分配与回复跟踪', icon: '💬', gradient: 'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)', count: 42, statLabel: '待处理', route: '/admin/inquiries' },
+        { id: 6, name: '帖子管理', desc: '审核用户发帖、内容管理与违规处理', icon: '📝', gradient: 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)', count: 326, statLabel: '总帖子', route: '/admin/posts' },
+        { id: 7, name: '申请管理', desc: '各类入驻、合作与权限申请审核', icon: '📨', gradient: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', count: 28, statLabel: '待处理', route: '/admin/applies' },
         { id: 8, name: '可视化分析', desc: '平台数据看板、用户行为与业务报表', icon: '📊', gradient: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', count: '—', statLabel: '数据洞察', route: '/admin/analytics' }
       ]
     };
@@ -78,10 +76,8 @@ export default {
   methods: {
     handleSearch(query) {
       console.log("全局搜索:", query);
-      // 可扩展: this.$router.push(`/admin/search?q=${encodeURIComponent(query)}`)
     },
     navigateTo(route) {
-      // ⭐ 核心跳转逻辑：已启用 Vue Router
       if (route) {
         this.$router.push(route);
       }
@@ -91,7 +87,6 @@ export default {
 </script>
 
 <style scoped>
-/* 样式部分完全保留你原有的设计，无需改动 */
 .admin-container {
   min-height: 100vh;
   background-color: #F7FAFC;

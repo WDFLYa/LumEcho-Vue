@@ -99,3 +99,10 @@ export function getUserList(params) {
 export function updateUserStatus(account, status) {
     return request.put(`/api/user/status/${account}`, { status });
 }
+export function updateUserAvatar(data) {
+    return request({
+        url: '/api/user/updateuseravatar',
+        method: 'post',
+        data
+    })
+}
