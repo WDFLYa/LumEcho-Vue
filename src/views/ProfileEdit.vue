@@ -297,16 +297,16 @@
 <script>
 import EditNavBar from '@/components/NavBar/EditNavBar.vue';
 
-// 🔥 关键导入：引入上传和更新接口
-import { uploadFile } from "@/api/file";
+// 🔥 关键导入：引入上传接口
+import { uploadAvatar } from "@/api/file";  // 改为 uploadAvatar
 import {
   getCurrentUserInfo,
   getCurrentUserDetail,
   updateUserProfile,
   completeAccount,
   completePhone,
-  sendCompleteCode,
-  updateUserAvatar // 引入新定义的更新头像接口
+  sendCompleteCode
+  // updateUserAvatar 不需要了，uploadAvatar 已包含更新逻辑
 } from "@/api/auth";
 
 export default {
@@ -320,7 +320,7 @@ export default {
       currentUserName: '',
 
       saving: false,
-      uploadingAvatar: false, // 🔥 新增：头像上传状态
+      uploadingAvatar: false,
 
       toastVisible: false,
       toastMessage: '',
@@ -452,7 +452,7 @@ export default {
     async handleSendCode() {
       const phoneRegex = /^1[3-9]\d{9}$/;
       if (!phoneRegex.test(this.completeForm.phone)) {
-        this.completeErrors.phone = '请输入正确的11位手机号';
+        this.completeErrors.phone = '请输入正确的 11 位手机号';
         return;
       }
       this.completeErrors.phone = '';
@@ -485,12 +485,12 @@ export default {
       try {
         if (this.missingType === 'account') {
           if (!this.completeForm.account || this.completeForm.account.length < 3) {
-            this.completeErrors.account = '账号长度至少3位';
+            this.completeErrors.account = '账号长度至少 3 位';
             this.submitting = false;
             return;
           }
           if (!this.completeForm.password || this.completeForm.password.length < 6) {
-            this.completeErrors.password = '密码长度至少6位';
+            this.completeErrors.password = '密码长度至少 6 位';
             this.submitting = false;
             return;
           }
@@ -508,7 +508,7 @@ export default {
             return;
           }
           if (!/^\d{6}$/.test(this.completeForm.code)) {
-            this.completeErrors.code = '请输入6位验证码';
+            this.completeErrors.code = '请输入 6 位验证码';
             this.submitting = false;
             return;
           }
@@ -534,12 +534,13 @@ export default {
     },
 
     triggerAvatarUpload() {
-      if (this.uploadingAvatar) return; // 防止重复点击
+      if (this.uploadingAvatar) return;
       this.$refs.avatarInput.click();
     },
 
     /**
-     * 🔥 核心修改：头像上传与更新逻辑
+     * 🔥 核心修改：头像上传与更新逻辑（简化版）
+     * 后端 /api/avatar/upload 已包含：上传 MinIO + 更新数据库
      */
     async handleAvatarChange(e) {
       const file = e.target.files[0];
@@ -561,40 +562,34 @@ export default {
       this.showToast('正在上传美照，请稍候... ✨', 'info');
 
       try {
-        // 3. 上传文件 (bizType 需与后端常量一致，例如 "USER_AVATAR")
-        const uploadRes = await uploadFile(file, 'USER_AVATAR');
+        // 🔥 直接调用 uploadAvatar，后端自动完成上传 + 关联用户
+        const res = await uploadAvatar(file, 'avatar');
 
-        // 兼容不同后端返回结构，获取 URL
-        // 假设返回结构: { code: 200, data: "http://..." } 或 { code: 200, data: { url: "..." } }
+        // 3. 解析返回的 URL（兼容多种返回结构）
         let newAvatarUrl = '';
-        if (typeof uploadRes.data === 'string') {
-          newAvatarUrl = uploadRes.data;
-        } else if (uploadRes.data && typeof uploadRes.data === 'object') {
-          newAvatarUrl = uploadRes.data.url || uploadRes.data.fileUrl || uploadRes.data.data;
-        }
-
-        if (!newAvatarUrl) {
-          // 如果直接返回的是 data 字段且是字符串
-          newAvatarUrl = uploadRes.data;
-        }
-
-        // 再次检查，如果还是拿不到，尝试直接取 res.data (有些封装会直接解包)
-        if (!newAvatarUrl && uploadRes.data) {
-          newAvatarUrl = uploadRes.data;
+        if (typeof res.data === 'string') {
+          newAvatarUrl = res.data;
+        } else if (res.data?.data) {
+          // { code: 200, data: "url" } 或 { code: 200, data: { data: "url" } }
+          newAvatarUrl = typeof res.data.data === 'string' ? res.data.data : res.data.data;
+        } else if (res.data?.url) {
+          newAvatarUrl = res.data.url;
+        } else if (res.data?.fileUrl) {
+          newAvatarUrl = res.data.fileUrl;
         }
 
         if (!newAvatarUrl) {
           throw new Error('上传成功但未获取到文件地址');
         }
 
-        // 4. 更新数据库
-        await updateUserAvatar({ avatarUrl: newAvatarUrl });
-
-        // 5. 更新本地 UI
+        // 4. 更新本地 UI
         this.formData.avatar = newAvatarUrl;
         this.currentUserAvatar = newAvatarUrl;
 
         this.showToast('头像换好啦！真好看 🎉', 'success');
+
+        // 🔥 可选：上传成功后刷新用户信息（确保导航栏等组件同步）
+        this.fetchNavUserInfo();
 
       } catch (error) {
         console.error('头像更新失败:', error);
@@ -688,6 +683,7 @@ export default {
   }
 };
 </script>
+
 
 <style scoped>
 /* ====================
