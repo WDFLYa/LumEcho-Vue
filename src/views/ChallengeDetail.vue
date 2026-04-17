@@ -292,6 +292,7 @@ import {
   getScoreList,
   checkHasScored
 } from '@/api/challenge'
+import { getCurrentUserInfo } from "@/api/auth";
 
 export default {
   name: 'ChallengeDetail',
@@ -368,11 +369,25 @@ export default {
     }
   },
   mounted() {
-    const id = this.$route.params.id
-    if (id) this.fetchDetail(id)
+    this.fetchDetail(this.$route.params.id);
+    this.fetchUserInfo();
   },
   methods: {
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败", e);
+      }
+    },
     async fetchDetail(id) {
+      if (!id) return;
       try {
         this.loading = true
         const [res, statusRes] = await Promise.all([
@@ -414,7 +429,6 @@ export default {
       if (res.data?.code === 200) return res.data.data
       return null
     },
-
     async openWorkDetail(item) {
       this.currentWork = item
       this.showWorkModal = true
@@ -434,7 +448,6 @@ export default {
       this.scoreList = []
       this.hasScored = false
     },
-
     openScorePanel() {
       if (!this.canVote || this.hasScored) return
       this.scoreForm.submissionId = this.currentWork.id
@@ -445,7 +458,6 @@ export default {
     closeScoreModal() {
       this.showScoreModal = false
     },
-
     async doSubmitScore() {
       const { score } = this.scoreForm
       if (score == null || score < 0 || score > 100) {
@@ -463,7 +475,6 @@ export default {
         this.submitting = false
       }
     },
-
     async doApply() {
       try {
         await applyChallenge(this.challenge.id)
@@ -472,7 +483,6 @@ export default {
         console.error('报名失败')
       }
     },
-
     goSubmitWork() {
       this.$router.push(`/challenge/${this.challenge.id}/submit`)
     },
@@ -485,7 +495,6 @@ export default {
     retry() {
       this.fetchDetail(this.$route.params.id)
     },
-
     getStatusClass(s) {
       s = Number(s)
       if (s === 0) return 'status-gray'

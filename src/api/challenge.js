@@ -81,3 +81,37 @@ export function checkHasScored(submissionId) {
         method: 'get'
     })
 }
+
+// ========== 管理员报名管理 ==========
+// 获取待开始挑战赛
+export function listPendingChallenges() {
+    return request({
+        url: '/api/challenge/admin/pending',
+        method: 'get'
+    })
+}
+
+// 根据挑战赛ID获取报名列表（带用户信息）
+export function getChallengeApplyList(challengeId) {
+    return request({
+        url: `/api/challengeapplication/admin/list/${challengeId}`,
+        method: 'get'
+    })
+}
+
+// 管理员审核通过
+export function approveApply(applicationId) {
+    return request({
+        url: `/api/challengeapplication/applications/${applicationId}/approve`,
+        method: 'post'
+    })
+}
+
+// 管理员拒绝（带备注）
+export function rejectApplyWithRemark(applicationId, remark) {
+    return request({
+        url: `/api/challengeapplication/admin/reject/${applicationId}`,
+        method: 'post',
+        params: { remark }
+    })
+}

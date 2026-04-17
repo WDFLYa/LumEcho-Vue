@@ -15,9 +15,9 @@
     <!-- 右侧操作区 -->
     <div class="nav-right">
 
-      <!-- 🔥 AI 摄影师咨询：只在他人主页显示 -->
+      <!-- 🔥 AI 摄影师咨询：只在他人主页 + 是摄影师 显示 -->
       <button
-          v-if="!isMe"
+          v-if="!isMe && isPhotographer"
           class="action-btn ai-chat-mode"
           @click="goAIChat"
       >
@@ -75,7 +75,8 @@ export default {
     userName: { type: String, default: '用户' },
     isMe: { type: Boolean, default: true },
     isFollowed: { type: Boolean, default: false },
-    actionLoading: { type: Boolean, default: false }
+    actionLoading: { type: Boolean, default: false },
+    isPhotographer: { type: Boolean, default: false }
   },
   emits: ['edit', 'follow', 'profile'],
   methods: {
@@ -218,6 +219,7 @@ export default {
   box-shadow: 0 6px 16px rgba(123, 97, 255, 0.35);
 }
 
+/* ========== ✅ 修复名字竖排问题 ========== */
 .user-info {
   display: flex;
   align-items: center;
@@ -227,6 +229,7 @@ export default {
   cursor: pointer;
   transition: all 0.3s;
   margin-left: 8px;
+  flex-shrink: 0;
 }
 .user-info:hover {
   background: rgba(255, 142, 142, 0.08);
@@ -235,7 +238,8 @@ export default {
   font-size: 14px;
   font-weight: 600;
   color: #555;
-  max-width: 80px;
+  max-width: 180px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }

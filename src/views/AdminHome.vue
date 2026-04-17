@@ -1,14 +1,11 @@
 <template>
   <div class="admin-container">
-    <!-- 1. 管理员专用导航栏 -->
     <AdminNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
-        @search="handleSearch"
     />
 
     <main class="content-wrapper">
-      <!-- 2. 顶部欢迎与操作 -->
       <header class="page-header">
         <div class="welcome-text">
           <h1>🛡️ 管理控制台</h1>
@@ -19,7 +16,6 @@
         </div>
       </header>
 
-      <!-- 3. 模块卡片网格 -->
       <section class="modules-grid">
         <div
             v-for="mod in modules"
@@ -36,7 +32,7 @@
             <p>{{ mod.desc }}</p>
             <div class="module-stat">
               <span class="stat-value">{{ mod.count }}</span>
-              <span class="stat-label">{{ statLabel }}</span>
+              <span class="stat-label">{{ mod.statLabel }}</span>
             </div>
           </div>
 
@@ -49,18 +45,18 @@
 
 <script>
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
+import { getCurrentUserInfo } from "@/api/auth";
 
 export default {
   name: "AdminHome",
   components: { AdminNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
-      currentUserName: 'Admin',
+      currentUserAvatar: '',
+      currentUserName: '',
       currentDate: new Date().toLocaleDateString('zh-CN', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       }),
-      // 可视化分析已放到最后一位
       modules: [
         { id: 1, name: '用户管理', desc: '管理注册用户、权限分配与状态监控', icon: '👥', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', count: 1248, statLabel: '活跃用户', route: '/admin/users' },
         { id: 2, name: '摄影师认证管理', desc: '审核资质、管理认证状态与作品集', icon: '📸', gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', count: 15, statLabel: '待审核', route: '/admin/photographers' },
@@ -73,9 +69,21 @@ export default {
       ]
     };
   },
+  mounted() {
+    this.fetchUserInfo();
+  },
   methods: {
-    handleSearch(query) {
-      console.log("全局搜索:", query);
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar;
+          this.currentUserName = data.username;
+        }
+      } catch (e) {
+        console.warn("获取管理员信息失败");
+      }
     },
     navigateTo(route) {
       if (route) {

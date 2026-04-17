@@ -138,9 +138,7 @@
       </div>
     </main>
 
-    <!-- ========================================== -->
-    <!-- 🔥 一进页面就弹出：完善资料弹窗 🔥 -->
-    <!-- ========================================== -->
+    <!-- 🔥 完善资料弹窗 -->
     <transition name="modal-fade">
       <div v-if="showCompleteProfileModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-card">
@@ -191,7 +189,6 @@ export default {
       currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
 
-      // ✨ 弹窗控制
       showCompleteProfileModal: false,
 
       searchQuery: '',
@@ -223,6 +220,10 @@ export default {
     this.fetchCategories();
   },
   activated() {
+    // 🔥 每次回到主页：强制刷新用户信息 + 帖子数据（实时同步）
+    this.fetchUserInfo();
+    this.resetList();
+
     const lastPostId = sessionStorage.getItem("lastPostId");
     if (!lastPostId) return;
     this.$nextTick(() => {
@@ -276,6 +277,7 @@ export default {
       this.offset = 0;
       this.posts = [];
       this.hasMore = true;
+      this.loading = false;
       this.fetchPosts();
     },
 
@@ -327,25 +329,21 @@ export default {
         const res = await getCurrentUserInfo();
         const data = res.data.code === 200 ? res.data.data : res.data;
         if (data) {
-          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
-          this.currentUserName = data.username || this.currentUserName;
+          // 强制使用最新资料，不兜底旧数据
+          this.currentUserName = data.username;
+          this.currentUserAvatar = data.avatar;
         }
       } catch (e) {
-        /* 忽略用户未登录异常 */
+        /* 忽略未登录 */
       }
 
       this.checkUserProfileComplete();
     },
 
-
-    // ==========================================
-    // 🔥 核心：检查资料是否完整
-    // ==========================================
     checkUserProfileComplete() {
       const token = localStorage.getItem('user_token');
       if (!token) return;
 
-      // 不完整 → 弹窗
       if (
           !this.currentUserName ||
           this.currentUserName === '神秘摄影师' ||
@@ -357,12 +355,10 @@ export default {
       }
     },
 
-    // 关闭弹窗
     closeModal() {
       this.showCompleteProfileModal = false;
     },
 
-    // 去编辑资料页
     goToProfileEdit() {
       this.closeModal();
       this.$router.push('/profile/edit');
@@ -741,9 +737,7 @@ export default {
 }
 .no-more { margin-top: 50px; text-align: center; color: #90A4AE; font-weight: 600; }
 
-/* ========================================== */
-/* 🔥 完善资料弹窗样式 🔥 */
-/* ========================================== */
+/* 完善资料弹窗 */
 .modal-overlay {
   position: fixed;
   top: 0;

@@ -25,13 +25,6 @@
             {{ tab.label }}
           </button>
         </div>
-        <div class="sorter">
-          <select v-model="sortBy" @change="fetchActivities">
-            <option value="latest">最新发布</option>
-            <option value="hot">最热报名</option>
-            <option value="nearby">距离最近</option>
-          </select>
-        </div>
       </div>
 
       <div class="activity-grid">
@@ -105,6 +98,7 @@
 <script>
 import ActivityNavBar from "@/components/NavBar/ActivityNavBar.vue";
 import { getActivityList } from "@/api/activity";
+import { getCurrentUserInfo } from "@/api/auth";
 import { ElMessage } from 'element-plus';
 
 export default {
@@ -112,12 +106,11 @@ export default {
   components: { ActivityNavBar },
   data() {
     return {
-      currentUserAvatar: localStorage.getItem('user_avatar') || 'http://localhost:9000/lumecho/avatar.png',
-      currentUserName: localStorage.getItem('user_name') || '摄影师',
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '摄影师',
       activityList: [],
       currentTab: 'all',
-      sortBy: 'latest',
-      searchQuery: '',
+      searchQuery: '',  // ✅ 修复：加了搜索关键词
       tabs: [
         { key: 'all', label: '全部活动' },
         { key: 0, label: '待开始' },
@@ -128,24 +121,35 @@ export default {
   },
   mounted() {
     this.fetchActivities();
+    this.fetchUserInfo();
   },
   methods: {
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败");
+      }
+    },
     async fetchActivities() {
       try {
-        const res = await getActivityList();
-        let list = res.data.data || [];
+        // ✅ 修复：传 status + keyword 给后端
+        const status = this.currentTab === 'all' ? null : this.currentTab;
+        const res = await getActivityList(status, this.searchQuery, 1, 100);
 
-        if (this.currentTab !== 'all') {
-          list = list.filter(item => item.status === this.currentTab);
-        }
-
-        this.activityList = list;
+        this.activityList = res.data.data || [];
       } catch (err) {
         ElMessage.error('获取活动失败');
         console.error(err);
       }
     },
 
+    // ✅ 修复：搜索方法
     handleSearch(query) {
       this.searchQuery = query;
       this.fetchActivities();
@@ -169,7 +173,6 @@ export default {
       const cls = { 0: 'status-pending', 1: 'status-ongoing', 2: 'status-finished' };
       return cls[status] || 'status-pending';
     },
-    // ========== 这里是修复的核心！其他完全没动 ==========
     getStatusText(status) {
       const map = { 0: '报名中', 1: '进行中', 2: '已结束' };
       return map[status] || '未知';
@@ -222,7 +225,7 @@ export default {
 }
 .filter-tools {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-bottom: 30px;
   background: #FFF;
@@ -245,14 +248,6 @@ export default {
 .tab-btn.active {
   background: linear-gradient(135deg, #FFB300, #FFA000);
   color: #FFF;
-}
-.sorter select {
-  padding: 6px 12px;
-  border-radius: 12px;
-  border: 1px solid #FFE0B2;
-  background: #FFF;
-  outline: none;
-  font-weight: 600;
 }
 .activity-grid {
   display: grid;

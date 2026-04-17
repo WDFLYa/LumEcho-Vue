@@ -128,6 +128,12 @@ const routes = [
         name: "PostManage",
         component: PostManage,
         meta: { title: "帖子管理" }
+    },
+    {
+        path: '/admin/applies',
+        name: 'AdminChallengeApplies',
+        component: () => import('@/views/AdminApplyManagement.vue'),
+        meta: { requiresAuth: true, role: 'admin' }
     }
 ]
 
