@@ -93,15 +93,14 @@ export default {
   },
   async mounted() {
     await this.loadAllUserInfo();
+    await this.loadTargetUserInfo(); // ✅ 调用正确方法
     await this.loadHistory();
 
-    // 只滚 1 次，不抖动
     setTimeout(() => {
       this.forceBottom();
     }, 100);
   },
   methods: {
-    // 干净、无抖动、只滚一次
     forceBottom() {
       const el = this.$refs.msgContainer;
       if (el) {
@@ -117,6 +116,21 @@ export default {
         }
       } catch (e) {
         console.error("当前用户信息加载失败", e);
+      }
+    },
+
+    // ✅✅✅ 这是你要的 100% 正确版本！！！
+    async loadTargetUserInfo() {
+      const photographerId = this.$route.params.photographerId;
+      if (!photographerId) return;
+
+      try {
+        const res = await getUserById(photographerId);
+        if (res.data.code === 200) {
+          this.targetUser = res.data.data;
+        }
+      } catch (e) {
+        console.error("获取摄影师信息失败", e);
       }
     },
 

@@ -1,10 +1,9 @@
 <template>
   <div class="activity-detail-page" :class="pageTheme">
-    <ActivityNavBar
+    <!-- 导航栏（无搜索、无创建、布局风格统一） -->
+    <ActivityDetailNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
-        @search="handleSearch"
-        @create="goCreate"
         @profile="goProfile"
     />
 
@@ -109,7 +108,7 @@
 </template>
 
 <script>
-import ActivityNavBar from "@/components/NavBar/ActivityNavBar.vue";
+import ActivityDetailNavBar from "@/components/NavBar/ActivityDetailNavBar.vue";
 import {
   getActivityDetail,
   applyActivity,
@@ -119,15 +118,17 @@ import {
   activityCheckIn
 } from "@/api/activity";
 
+// 👇 加入和正常页面一样的用户信息接口
+import { getCurrentUserInfo } from "@/api/auth";
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
   name: "ActivityDetail",
-  components: { ActivityNavBar },
+  components: { ActivityDetailNavBar },
   data() {
     return {
-      currentUserAvatar: localStorage.getItem('user_avatar') || 'http://localhost:9000/lumecho/avatar.png',
-      currentUserName: localStorage.getItem('user_name') || '摄影师',
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '摄影师',
       activity: null,
       myApplication: null,
       hasChecked: false
@@ -135,41 +136,23 @@ export default {
   },
   mounted() {
     this.init();
-  },
-  computed: {
-    pageTheme() {
-      const map = { 0: "theme-pending", 1: "theme-ongoing", 2: "theme-finished" };
-      return map[this.activity?.status || 0];
-    },
-    btnText() {
-      if (this.isFull) return "人数已满";
-      const s = this.myApplication?.status;
-      if (!this.myApplication) return "立即报名参加";
-      if (s === 0) return "申请中，请等待审核";
-      if (s === 1) return "报名成功，请按时参加";
-      if (s === 2) return "已拒绝";
-      if (s === 3) return "已取消报名";
-      return "状态异常";
-    },
-    btnTheme() {
-      if (this.isFull) return "btn-full";
-      const s = this.myApplication?.status;
-      if (!this.myApplication) return "btn-active";
-      if (s === 0) return "btn-pending";
-      if (s === 1) return "btn-approved";
-      if (s === 2 || s === 3) return "btn-disabled";
-      return "btn-disabled";
-    },
-    btnDisabled() {
-      if (this.isFull) return true;
-      const s = this.myApplication?.status;
-      return s !== undefined && s !== null && s !== 1;
-    },
-    isFull() {
-      return (this.activity?.currentParticipants || 0) >= (this.activity?.maxParticipants || 0);
-    }
+    this.fetchUserInfo(); // 👇 关键：加载用户信息
   },
   methods: {
+    // 👇 完全复制你能正常显示的页面逻辑
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败");
+      }
+    },
+
     async init() {
       await this.getActivityDetail();
       await this.getMyApplyStatus();
@@ -315,9 +298,42 @@ export default {
       const map = { 0: "待开始", 1: "进行中", 2: "已结束" };
       return map[status];
     },
-    handleSearch() {},
-    goCreate() { this.$router.push('/activity/create'); },
-    goProfile() { this.$router.push('/profile'); }
+    goProfile() {
+      this.$router.push('/profile');
+    }
+  },
+  computed: {
+    pageTheme() {
+      const map = { 0: "theme-pending", 1: "theme-ongoing", 2: "theme-finished" };
+      return map[this.activity?.status || 0];
+    },
+    btnText() {
+      if (this.isFull) return "人数已满";
+      const s = this.myApplication?.status;
+      if (!this.myApplication) return "立即报名参加";
+      if (s === 0) return "申请中，请等待审核";
+      if (s === 1) return "报名成功，请按时参加";
+      if (s === 2) return "已拒绝";
+      if (s === 3) return "已取消报名";
+      return "状态异常";
+    },
+    btnTheme() {
+      if (this.isFull) return "btn-full";
+      const s = this.myApplication?.status;
+      if (!this.myApplication) return "btn-active";
+      if (s === 0) return "btn-pending";
+      if (s === 1) return "btn-approved";
+      if (s === 2 || s === 3) return "btn-disabled";
+      return "btn-disabled";
+    },
+    btnDisabled() {
+      if (this.isFull) return true;
+      const s = this.myApplication?.status;
+      return s !== undefined && s !== null && s !== 1;
+    },
+    isFull() {
+      return (this.activity?.currentParticipants || 0) >= (this.activity?.maxParticipants || 0);
+    }
   }
 };
 </script>

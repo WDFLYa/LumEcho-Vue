@@ -9,7 +9,6 @@
 
     <!-- 搜索框 (图标常驻) -->
     <div class="search-container">
-      <!-- 图标始终显示 -->
       <span class="search-icon">🔍</span>
       <input
           type="text"
@@ -22,6 +21,17 @@
 
     <!-- 右侧用户区 -->
     <div class="nav-right">
+      <!-- ✅ ADMIN 才显示：后台管理按钮 -->
+      <button
+          v-if="isAdmin"
+          class="admin-btn"
+          @click="goAdmin"
+          title="进入后台管理"
+      >
+        <span class="btn-icon">🛡️</span>
+        <span>后台管理</span>
+      </button>
+
       <button class="upload-btn" @click="$emit('upload')">
         <span class="btn-icon">✨</span>
         <span>发布作品</span>
@@ -52,11 +62,20 @@ export default {
       searchQuery: ''
     };
   },
+  computed: {
+    // ✅ 自动判断是否管理员
+    isAdmin() {
+      return localStorage.getItem('user_role') === 'ADMIN';
+    }
+  },
   methods: {
     goHome() {
       this.$router.push("/home");
     },
-    // ✨ 关键：按下回车时，将当前的 searchQuery 发送给父组件
+    // ✅ 去后台
+    goAdmin() {
+      this.$router.push("/admin");
+    },
     handleSearch() {
       this.$emit('search', this.searchQuery);
     }
@@ -140,6 +159,27 @@ export default {
   gap: 20px;
 }
 
+/* ✅ 后台管理按钮（管理员专用） */
+.admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #0288D1, #4FC3F7);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(79, 195, 247, 0.3);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.admin-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(79, 195, 247, 0.5);
+}
+
 /* 发布按钮 */
 .upload-btn {
   display: flex;
@@ -220,8 +260,9 @@ export default {
 @media (max-width: 768px) {
   .navbar { padding: 12px 20px; }
   .search-container { display: none; }
-  .upload-btn span:not(.btn-icon) { display: none; }
-  .upload-btn { padding: 10px; border-radius: 50%; }
+  .upload-btn span:not(.btn-icon),
+  .admin-btn span:not(.btn-icon) { display: none; }
+  .upload-btn, .admin-btn { padding: 10px; border-radius: 50%; }
   .user-name { display: none; }
   .user-capsule { padding: 4px; border-radius: 50%; }
   .user-avatar-wrapper { width: 40px; height: 40px; }

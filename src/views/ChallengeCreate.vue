@@ -1,6 +1,6 @@
 <template>
   <div class="challenge-page">
-    <ChallengeNavBar
+    <ChallengeCreateNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
     />
@@ -113,18 +113,20 @@
 </template>
 
 <script>
-import ChallengeNavBar from "@/components/NavBar/ChallengeNavBar.vue";
+import ChallengeCreateNavBar from "@/components/NavBar/ChallengeCreateNavBar.vue";
+
 import { createChallenge } from "@/api/challenge";
 import { uploadFile } from "@/api/file";
+import { getCurrentUserInfo } from "@/api/auth";
 import { ElMessage } from 'element-plus';
 
 export default {
   name: "ChallengeCreate",
-  components: { ChallengeNavBar },
+  components: { ChallengeCreateNavBar },
   data() {
     return {
-      currentUserAvatar: localStorage.getItem('user_avatar') || 'http://localhost:9000/lumecho/avatar.png',
-      currentUserName: localStorage.getItem('user_name') || '摄影师',
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '摄影师',
 
       isSubmitting: false,
       uploadingCover: false,
@@ -153,13 +155,26 @@ export default {
   },
 
   mounted() {
+    this.fetchUserInfo();
     if (!this.isPhotographer) {
-      // 这里改成警告，不是错误
       ElMessage.warning('⚠️ 仅摄影师/管理员可创建挑战赛');
     }
   },
 
   methods: {
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败", e);
+      }
+    },
+
     goBack() {
       this.$router.push('/challenge');
     },

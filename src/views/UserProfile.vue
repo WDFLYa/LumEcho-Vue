@@ -6,6 +6,7 @@
         :user-name="user.username"
         :is-me="isMe"
         :is-followed="isFollowed"
+        :is-photographer="isPhotographer"
         @edit="goToEdit"
         @follow="handleFollow"
         @profile="goToProfile"
@@ -17,7 +18,6 @@
       <div class="bg-shape shape-2">🌸</div>
       <div class="bg-shape shape-3">🎈</div>
 
-      <!-- 🔥 修复：增加 flex 布局确保内容垂直居中对齐 -->
       <div class="hero-content">
         <div class="avatar-wrapper">
           <div class="avatar-ring"></div>
@@ -41,21 +41,17 @@
             <p class="bio-text">这个人很神秘，还没写简介...</p>
           </div>
 
-          <!-- 🔥 修复：交换了 following 和 followers 的顺序 -->
           <div class="stats-capsules">
-            <!-- 1. 作品 (保持不动) -->
             <div class="capsule">
               <span class="num">{{ stats.posts }}</span>
               <span class="label">📸 作品</span>
             </div>
 
-            <!-- 2. 关注 (移到左边) -->
             <div class="capsule" @click="openList('following')">
               <span class="num">{{ stats.following }}</span>
               <span class="label">👀 关注</span>
             </div>
 
-            <!-- 3. 粉丝 (移到右边，并添加 highlight 高亮) -->
             <div class="capsule highlight" @click="openList('followers')">
               <span class="num">{{ stats.followers }}</span>
               <span class="label">🥰 粉丝</span>
@@ -67,7 +63,6 @@
 
     <!-- 内容区域 -->
     <div class="content-wrapper">
-      <!-- 选项卡 -->
       <div class="cute-tabs">
         <button
             class="tab-btn"
@@ -92,7 +87,7 @@
         </button>
       </div>
 
-      <!-- 帖子列表 (Posts Tab) -->
+      <!-- 帖子列表 -->
       <div class="posts-grid" v-if="currentTab === 'posts'">
         <div v-if="loading && posts.length === 0" class="loading-container">
           <div class="loading-text">正在加载作品...</div>
@@ -142,7 +137,7 @@
         </div>
       </div>
 
-      <!-- 喜欢的帖子列表 (Liked Tab) -->
+      <!-- 喜欢的帖子 -->
       <div class="posts-grid" v-else-if="currentTab === 'liked'">
         <div v-if="loadingLiked && likedPosts.length === 0" class="loading-container">
           <div class="loading-text">正在加载...</div>
@@ -205,17 +200,15 @@
       </div>
     </div>
 
-    <!-- 🌟 底部弹窗 (用户列表 Drawer) -->
+    <!-- 粉丝/关注弹窗 -->
     <div v-if="showListModal" class="modal-overlay" @click.self="closeListModal">
       <div class="modal-drawer">
-        <!-- 顶部拖拽条/标题 -->
         <div class="drawer-header">
           <div class="drag-bar"></div>
           <h3>{{ listType === 'followers' ? '🥰 粉丝列表' : '👀 关注列表' }}</h3>
           <button class="close-btn" @click="closeListModal">✕</button>
         </div>
 
-        <!-- 列表内容 -->
         <div class="drawer-content">
           <div v-if="listLoading" class="list-loading">
             <div class="spinner"></div>
@@ -233,7 +226,6 @@
                 :key="u.userId"
                 class="user-item"
             >
-              <!-- 左侧信息区，点击跳转 -->
               <div class="user-info-area" @click="goToUser(u.userId)">
                 <img
                     :src="u.avatar || 'http://localhost:9000/specialty/avatar.png'"
@@ -249,7 +241,6 @@
                 </div>
               </div>
 
-              <!-- 右侧操作区，点击不跳转 -->
               <div class="action-area">
                 <button
                     v-if="!isCurrentUser(u.userId)"
@@ -290,6 +281,7 @@ export default {
       loadingLiked: false,
       isFollowed: false,
       actionLoading: false,
+      isPhotographer: false,
       user: {
         username: '加载中...',
         bio: '',
@@ -394,6 +386,7 @@ export default {
             this.isLoggedIn = true;
           }
         } else {
+          // 👇 这里获取别人的信息，包含 role
           res = await getUserById(this.targetUserId);
         }
 
@@ -419,6 +412,8 @@ export default {
         followers: data.followerCount ?? data.fansCount ?? 0,
         following: data.followingCount ?? data.followCount ?? 0
       };
+      // 👇 关键：判断当前访问的用户是不是摄影师
+      this.isPhotographer = data.role === 'PHOTOGRAPHER';
     },
     async checkFollowStatus() {
       if (!this.targetUserId || !this.isLoggedIn) return;
@@ -618,14 +613,8 @@ export default {
           userItem.status = !userItem.status;
           if (userItem.status) {
             this.$message.success('关注成功！');
-            if (this.listType === 'following') {
-              this.stats.following += 1;
-            }
           } else {
             this.$message.info('已取关');
-            if (this.listType === 'following') {
-              this.stats.following = Math.max(0, this.stats.following - 1);
-            }
           }
         }
       } catch (error) {
@@ -669,10 +658,8 @@ export default {
 </script>
 
 <style scoped>
-/* --- 基础布局 --- */
 .profile-page { min-height: 100vh; background: #FAFAFA; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #444; padding-bottom: 60px; position: relative; }
 
-/* --- Hero 区域 --- */
 .hero-section {
   position: relative;
   background: linear-gradient(180deg, #FFF0F5 0%, #FFFFFF 100%);
@@ -692,7 +679,6 @@ export default {
 
 @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-15px) rotate(10deg); } }
 
-/* 🔥 修复：使用 Flex 布局确保内容垂直居中对齐 */
 .hero-content {
   position: relative;
   z-index: 2;
@@ -707,7 +693,6 @@ export default {
   position: relative;
   display: inline-block;
   margin-bottom: 20px;
-  /* 确保容器有足够空间容纳圆环 */
   width: 140px;
   height: 140px;
   display: flex;
@@ -730,7 +715,6 @@ export default {
 
 .user-avatar:hover { transform: scale(1.05); }
 
-/* 🔥 修复：圆环定位优化 */
 .avatar-ring {
   position: absolute;
   top: 50%;
@@ -755,19 +739,16 @@ export default {
 .stats-capsules { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
 .capsule { background: #fff; padding: 8px 20px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; min-width: 70px; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); border: 1px solid #f0f0f0; }
 .capsule:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(255, 142, 142, 0.2); border-color: #FFB7B2; }
-/* 注意：highlight 类现在应用在粉丝胶囊上 */
 .capsule.highlight { background: linear-gradient(135deg, #FFF0F5 0%, #fff 100%); border-color: #FFB7B2; }
 .num { font-size: 1.1rem; font-weight: 800; color: #333; }
 .label { font-size: 0.7rem; color: #888; font-weight: 600; margin-top: 2px; text-transform: uppercase; }
 
-/* --- 内容区域 --- */
 .content-wrapper { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 .cute-tabs { display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; position: sticky; top: 20px; z-index: 10; background: rgba(250, 250, 250, 0.9); backdrop-filter: blur(10px); padding: 10px 0; }
 .tab-btn { background: #fff; border: 2px solid #f0f0f0; padding: 8px 20px; border-radius: 50px; font-size: 0.95rem; font-weight: 700; color: #888; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .tab-btn.active { background: #222; color: #fff; border-color: #222; transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .tab-btn:not(.active):hover { border-color: #FFB7B2; color: #FF8E8E; background: #FFF0F5; }
 
-/* --- 帖子网格 --- */
 .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; padding-bottom: 40px; }
 .post-card { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.04); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; border: 1px solid #fafafa; display: flex; flex-direction: column; }
 .post-card:hover { transform: translateY(-8px); box-shadow: 0 12px 25px rgba(255, 183, 178, 0.25); border-color: #ffe0e0; }
@@ -787,7 +768,6 @@ export default {
 .card-meta { display: flex; justify-content: flex-end; }
 .time-tag { font-size: 0.7rem; color: #999; background: #f5f5f5; padding: 2px 8px; border-radius: 10px; }
 
-/* --- 加载与空状态 --- */
 .loading-container { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #999; }
 .loading-text { font-size: 1rem; }
 .load-more-trigger { grid-column: 1 / -1; text-align: center; margin-top: 20px; }
@@ -801,9 +781,6 @@ export default {
 .create-btn { background: #222; color: #fff; border: none; padding: 12px 32px; border-radius: 50px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 .create-btn:hover { transform: scale(1.05); background: #000; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
 
-/* =========================================
-   🌟 底部弹窗 (Drawer) 样式
-   ========================================= */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1084,7 +1061,6 @@ export default {
   font-size: 0.9rem;
 }
 
-/* 🔥 移动端适配 */
 @media (max-width: 768px) {
   .hero-section { border-radius: 0 0 30px 30px; padding: 40px 20px 30px; }
   .user-avatar { width: 90px; height: 90px; }

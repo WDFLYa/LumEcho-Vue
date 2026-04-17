@@ -1,26 +1,12 @@
 <template>
   <header class="admin-navbar">
-    <!-- 左侧：Logo + 面包屑/标题 -->
+    <!-- 左侧：Logo + 标题 -->
     <div class="nav-left" @click="goHome">
       <h1 class="admin-logo">
         🛡️ Lum<span>Admin</span>
       </h1>
       <div class="divider"></div>
       <span class="page-title">控制台 Dashboard</span>
-    </div>
-
-    <!-- 中间：管理专用搜索框 -->
-    <div class="search-container">
-      <span class="search-icon">🔍</span>
-      <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索用户ID、订单号或摄影师..."
-          class="search-input"
-          @keyup.enter="handleSearch"
-      />
-      <!-- 清除按钮 (有内容时显示) -->
-      <span v-if="searchQuery" class="clear-icon" @click.stop="clearSearch">✕</span>
     </div>
 
     <!-- 右侧：工具与用户区 -->
@@ -37,7 +23,7 @@
         <span v-if="hasUnreadMsg" class="red-dot"></span>
       </div>
 
-      <!-- 3. 管理员信息胶囊 -->
+      <!-- 3. 管理员信息胶囊（真实头像+名字） -->
       <div class="admin-capsule" @click="$emit('profile')">
         <div class="capsule-content">
           <div class="admin-info-text">
@@ -69,13 +55,11 @@ export default {
   },
   data() {
     return {
-      searchQuery: '',
-      hasUnreadMsg: true // 模拟有未读消息
+      hasUnreadMsg: true
     };
   },
   methods: {
     goHome() {
-      // 如果已经在首页则刷新，否则跳转
       if (this.$route.path === '/admin') {
         this.$emit('refresh');
       } else {
@@ -85,23 +69,15 @@ export default {
     goFrontHome() {
       this.$router.push("/home");
     },
-    handleSearch() {
-      this.$emit('search', this.searchQuery);
-    },
-    clearSearch() {
-      this.searchQuery = '';
-      this.$emit('search', '');
-    },
     handleNotification() {
       this.hasUnreadMsg = false;
-      this.$router.push('/admin/messages'); // 假设的消息中心路径
+      this.$router.push('/admin/messages');
     }
   }
 };
 </script>
 
 <style scoped>
-/* --- 容器样式 --- */
 .admin-navbar {
   display: flex;
   justify-content: space-between;
@@ -110,7 +86,6 @@ export default {
   position: sticky;
   top: 0;
   z-index: 1000;
-  /* 更偏向管理的磨砂玻璃效果 */
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid #E1F5FE;
@@ -118,7 +93,6 @@ export default {
   transition: all 0.3s ease;
 }
 
-/* --- 左侧 Logo 区 --- */
 .nav-left {
   display: flex;
   align-items: center;
@@ -130,14 +104,14 @@ export default {
 .admin-logo {
   font-size: 1.5rem;
   font-weight: 900;
-  color: #37474F; /* 更深沉的颜色 */
+  color: #37474F;
   margin: 0;
   letter-spacing: -0.5px;
   transition: transform 0.3s;
 }
 .admin-logo:hover { transform: scale(1.02); }
 .admin-logo span {
-  color: #0288D1; /* 科技蓝 */
+  color: #0288D1;
 }
 
 .divider {
@@ -154,63 +128,12 @@ export default {
   letter-spacing: 1px;
 }
 
-/* --- 中间搜索框 --- */
-.search-container {
-  flex: 1;
-  max-width: 500px;
-  margin: 0 20px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 16px;
-  font-size: 16px;
-  color: #B0BEC5;
-  pointer-events: none;
-  transition: color 0.3s;
-}
-
-.clear-icon {
-  position: absolute;
-  right: 16px;
-  font-size: 14px;
-  color: #B0BEC5;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.clear-icon:hover { color: #F44336; transform: scale(1.1); }
-
-.search-input {
-  width: 100%;
-  padding: 10px 40px 10px 45px; /* 右边距留给清除按钮 */
-  border-radius: 12px; /* 稍微方一点，显得更严谨 */
-  border: 2px solid #ECEFF1;
-  background: #F5F7FA;
-  font-size: 14px;
-  color: #455A64;
-  outline: none;
-  transition: all 0.3s;
-  font-family: inherit;
-}
-
-.search-input:focus {
-  background: #FFFFFF;
-  border-color: #4FC3F7;
-  box-shadow: 0 0 0 4px rgba(79, 195, 247, 0.1);
-}
-.search-input:focus + .search-icon { color: #4FC3F7; }
-
-/* --- 右侧操作区 --- */
 .nav-right {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-/* 通用图标按钮 */
 .icon-btn {
   background: transparent;
   border: none;
@@ -235,7 +158,6 @@ export default {
   font-weight: 700;
 }
 
-/* 消息通知 */
 .notification-wrapper {
   position: relative;
   cursor: pointer;
@@ -263,7 +185,6 @@ export default {
   100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
 }
 
-/* 管理员胶囊 */
 .admin-capsule {
   background: #FFFFFF;
   border: 2px solid #ECEFF1;
@@ -335,11 +256,9 @@ export default {
 }
 .status-indicator.online { background: #4CAF50; }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
   .admin-navbar { padding: 10px 20px; }
   .page-title, .back-btn .btn-text, .admin-info-text { display: none; }
-  .search-container { max-width: 120px; margin: 0 10px; }
   .divider { display: none; }
   .admin-capsule { padding: 4px; border-radius: 50%; border: none; box-shadow: none; }
 }

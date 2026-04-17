@@ -1,10 +1,9 @@
 <template>
   <div class="activity-create-page">
-    <ActivityNavBar
+    <!-- 新导航栏 -->
+    <ActivityCreateNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
-        @search="handleSearch"
-        @create="toCreate"
         @profile="goProfile"
     />
 
@@ -26,7 +25,7 @@
 
         <div class="form-box">
 
-          <!-- ====================== 新增：封面上传 ====================== -->
+          <!-- 封面上传 -->
           <div class="form-item">
             <label>🖼️ 活动封面</label>
             <div class="upload-box" @click="$refs.fileInput.click()" :class="{ 'has-preview': coverPreview }">
@@ -40,7 +39,6 @@
             <div v-if="uploadingCover" class="upload-status">⏳ 图片上传中...</div>
             <div v-if="coverError" class="upload-error">❌ {{ coverError }}</div>
           </div>
-          <!-- ====================== 结束新增 ====================== -->
 
           <div class="form-item">
             <label>活动标题</label>
@@ -135,23 +133,24 @@
 
 <script>
 /* eslint-disable */
-import ActivityNavBar from "@/components/NavBar/ActivityNavBar.vue";
+import ActivityCreateNavBar from "@/components/NavBar/ActivityCreateNavBar.vue";
 import {
   getAllProvince,
   getCitiesByProvince,
   getDistrictsByCity,
   createActivity
 } from "@/api/activity.js";
-import {uploadFile} from "@/api/file";
-import {ElMessage} from 'element-plus';
+import { uploadFile } from "@/api/file";
+import { ElMessage } from 'element-plus';
+import { getCurrentUserInfo } from "@/api/auth";
 
 export default {
   name: "ActivityCreate",
-  components: {ActivityNavBar},
+  components: { ActivityCreateNavBar },
   data() {
     return {
-      currentUserAvatar: localStorage.getItem('user_avatar') || "http://localhost:9000/lumecho/avatar.png",
-      currentUserName: localStorage.getItem('user_name') || "摄影师",
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '摄影师',
 
       uploadingCover: false,
       coverError: '',
@@ -185,16 +184,6 @@ export default {
       const role = (localStorage.getItem('user_role') || '').trim().toUpperCase();
       return role === 'ADMIN' || role === 'PHOTOGRAPHER';
     },
-
-    provinceName() {
-      return this.provinces.find(p => p.id == this.provinceId)?.name || "";
-    },
-    cityName() {
-      return this.cities.find(c => c.id == this.cityId)?.name || "";
-    },
-    districtName() {
-      return this.districts.find(d => d.id == this.districtId)?.name || "";
-    }
   },
 
   mounted() {
@@ -203,14 +192,27 @@ export default {
       return;
     }
     this.fetchProvinces();
+    this.fetchUserInfo();
   },
 
   methods: {
+    // 获取用户信息（头像昵称）
+    async fetchUserInfo() {
+      try {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserAvatar = data.avatar || this.currentUserAvatar;
+          this.currentUserName = data.username || this.currentUserName;
+        }
+      } catch (e) {
+        console.warn("获取用户信息失败");
+      }
+    },
+
     goBack() {
       this.$router.push('/activity');
     },
-    handleSearch() {},
-    toCreate() {},
     goProfile() {
       this.$router.push("/profile");
     },
@@ -250,7 +252,7 @@ export default {
 
     async fetchProvinces() {
       try {
-        const {data} = await getAllProvince();
+        const { data } = await getAllProvince();
         this.provinces = data;
       } catch (e) {
         console.log("获取省份失败", e);
@@ -265,7 +267,7 @@ export default {
       if (!this.provinceId) return;
 
       try {
-        const {data} = await getCitiesByProvince(this.provinceId);
+        const { data } = await getCitiesByProvince(this.provinceId);
         this.cities = data;
       } catch (e) {
         console.log("获取城市失败", e);
@@ -278,7 +280,7 @@ export default {
       if (!this.cityId) return;
 
       try {
-        const {data} = await getDistrictsByCity(this.cityId);
+        const { data } = await getDistrictsByCity(this.cityId);
         this.districts = data;
       } catch (e) {
         console.log("获取区县失败", e);
@@ -419,7 +421,7 @@ export default {
   font-size: 15px;
 }
 
-/* 上传封面样式 */
+/* 上传封面 */
 .upload-box {
   width: 100%; height: 180px; border: 2px dashed #E1BEE7; border-radius: 16px;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -514,27 +516,17 @@ export default {
 }
 
 input[type="datetime-local"] {
-  position: relative;
   color: #6a1b9a;
   font-weight: 600;
 }
 
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  right: 12px;
   width: 20px;
   height: 20px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23AB47BC'%3E%3Cpath d='M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 18px;
-  background-color: transparent;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
-  transform: scale(1.1);
 }
 
 .form-select {
