@@ -21,6 +21,9 @@ export function getHomePosts(params) {
     return request.get("/api/post/select/all", { params });
 }
 
+export function getAllPosts(params) {
+    return request.get("/api/post/select/all/post", { params });
+}
 /**
  * 发布帖子
  * @param {Object} data - 帖子数据
@@ -56,4 +59,8 @@ export function getUserPostsApi(params) {
 }
 export function getUserLikedPostsApi(params) {
     return request.get('/api/post/like/list', { params });
+}
+
+export function updatePostStatus(data) {
+    return request.post('/api/admin/update/post/status', data);
 }

@@ -145,3 +145,10 @@ export function rejectApply(applicationId) {
         method: 'post'
     })
 }
+
+export function cancelActivity(id) {
+    return request({
+        url: `/api/activity/cancel/${id}`,
+        method: "post"
+    });
+}

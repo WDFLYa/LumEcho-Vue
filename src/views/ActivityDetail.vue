@@ -1,109 +1,150 @@
 <template>
   <div class="activity-detail-page" :class="pageTheme">
-    <!-- 导航栏（无搜索、无创建、布局风格统一） -->
+    <!-- 导航栏 -->
     <ActivityDetailNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
         @profile="goProfile"
     />
 
-    <main class="detail-container" v-if="activity">
-      <div class="detail-hero">
-        <div class="cover-blur" :style="{ backgroundImage: `url(${activity.coverUrl})` }"></div>
-        <div class="cover-content">
-          <div class="status-badge" :class="getStatusClass(activity.status)">
-            {{ getStatusText(activity.status) }}
+    <!-- ✅ 修复1：统一处理加载状态 -->
+    <div v-if="!activity" class="loading-state">
+      <div class="loader">🌸</div>
+      <p>加载活动详情中...</p>
+    </div>
+
+    <!-- ✅ 修复2：当 activity 存在时，再根据状态显示不同内容 -->
+    <main v-else class="detail-container">
+
+      <!-- 情况 A：活动已取消 (Status 3) -->
+      <div v-if="activity.status === 3" class="cancelled-view">
+        <div class="cancelled-card">
+          <div class="cancelled-icon">🚫</div>
+          <h2 class="cancelled-title">很抱歉，该活动已取消</h2>
+          <p class="cancelled-desc">
+            由于主办方安排或其他原因，管理员已终止此活动。<br>
+            给您带来的不便，我们深表歉意。
+          </p>
+
+          <div class="cancelled-info-box">
+            <div class="info-row">
+              <span class="label">活动主题：</span>
+              <span class="value">{{ activity.title }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">原定时间：</span>
+              <span class="value">{{ formatDate(activity.startTime) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">原定地点：</span>
+              <span class="value">{{ activity.location }}</span>
+            </div>
           </div>
-          <h1 class="title">{{ activity.title }}</h1>
-          <p class="desc">{{ activity.description }}</p>
+
+          <button class="back-btn-large" @click="goBack">
+            🏠 返回活动列表
+          </button>
         </div>
       </div>
 
-      <div class="info-card">
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="item-icon">📅</div>
-            <div class="item-text">
-              <div class="label">活动时间</div>
-              <div class="value">{{ formatDate(activity.startTime) }} ~ {{ formatDate(activity.endTime) }}</div>
+      <!-- 情况 B：活动正常 (Status 0, 1, 2) -->
+      <div v-else>
+        <div class="detail-hero">
+          <div class="cover-blur" :style="{ backgroundImage: `url(${activity.coverUrl})` }"></div>
+          <div class="cover-content">
+            <div class="status-badge" :class="getStatusClass(activity.status)">
+              {{ getStatusText(activity.status) }}
             </div>
+            <h1 class="title">{{ activity.title }}</h1>
+            <p class="desc">{{ activity.description }}</p>
           </div>
+        </div>
 
-          <div class="info-item">
-            <div class="item-icon">📍</div>
-            <div class="item-text">
-              <div class="label">活动地点</div>
-              <div class="value">{{ activity.location }}</div>
+        <div class="info-card">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="item-icon">📅</div>
+              <div class="item-text">
+                <div class="label">活动时间</div>
+                <div class="value">{{ formatDate(activity.startTime) }} ~ {{ formatDate(activity.endTime) }}</div>
+              </div>
             </div>
-          </div>
 
-          <div class="info-item">
-            <div class="item-icon">👥</div>
-            <div class="item-text">
-              <div class="label">参与人数</div>
-              <div class="value">
-                <span class="num">{{ activity.currentParticipants || 0 }}</span>
-                <span class="total">/ {{ activity.maxParticipants }} 人</span>
+            <div class="info-item">
+              <div class="item-icon">📍</div>
+              <div class="item-text">
+                <div class="label">活动地点</div>
+                <div class="value">{{ activity.location }}</div>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="item-icon">👥</div>
+              <div class="item-text">
+                <div class="label">参与人数</div>
+                <div class="value">
+                  <span class="num">{{ activity.currentParticipants || 0 }}</span>
+                  <span class="total">/ {{ activity.maxParticipants }} 人</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="item-icon">📸</div>
+              <div class="item-text">
+                <div class="label">发起摄影师</div>
+                <div class="value">{{ activity.photographerName || '摄影师' }}</div>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="item-icon">🛡️</div>
+              <div class="item-text">
+                <div class="label">报名审核</div>
+                <div class="value">{{ activity.requireAudit ? "需要审核" : "免审核" }}</div>
               </div>
             </div>
           </div>
 
-          <div class="info-item">
-            <div class="item-icon">📸</div>
-            <div class="item-text">
-              <div class="label">发起摄影师</div>
-              <div class="value">{{ activity.photographerName || '摄影师' }}</div>
-            </div>
-          </div>
-
-          <div class="info-item">
-            <div class="item-icon">🛡️</div>
-            <div class="item-text">
-              <div class="label">报名审核</div>
-              <div class="value">{{ activity.requireAudit ? "需要审核" : "免审核" }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="action-box">
-          <button
-              v-if="activity.status === 0"
-              class="join-btn"
-              :class="btnTheme"
-              :disabled="btnDisabled"
-              @click="handleAction"
-          >
-            {{ btnText }}
-          </button>
-
-          <template v-else-if="activity.status === 1">
+          <div class="action-box">
+            <!-- 状态 0: 待开始 -> 报名 -->
             <button
-                v-if="myApplication?.status === 1"
-                class="join-btn btn-approved"
-                @click="doCheckIn"
-                :disabled="hasChecked"
+                v-if="activity.status === 0"
+                class="join-btn"
+                :class="btnTheme"
+                :disabled="btnDisabled"
+                @click="handleAction"
             >
-              {{ hasChecked ? "✅ 已签到" : "📱 立即签到" }}
+              {{ btnText }}
             </button>
-            <button v-else class="join-btn btn-disabled" disabled>
-              未报名，无法签到
-            </button>
-          </template>
 
-          <button
-              v-else-if="activity.status === 2"
-              class="join-btn btn-disabled"
-              disabled
-          >
-            活动已结束
-          </button>
+            <!-- 状态 1: 进行中 -> 签到 -->
+            <template v-else-if="activity.status === 1">
+              <button
+                  v-if="myApplication?.status === 1"
+                  class="join-btn btn-approved"
+                  @click="doCheckIn"
+                  :disabled="hasChecked"
+              >
+                {{ hasChecked ? "✅ 已签到" : "📱 立即签到" }}
+              </button>
+              <button v-else class="join-btn btn-disabled" disabled>
+                未报名，无法签到
+              </button>
+            </template>
+
+            <!-- 状态 2: 已结束 -->
+            <button
+                v-else-if="activity.status === 2"
+                class="join-btn btn-disabled"
+                disabled
+            >
+              活动已结束
+            </button>
+          </div>
         </div>
       </div>
     </main>
-
-    <div v-else class="loading" style="text-align:center; padding:60px;">
-      加载活动详情中...
-    </div>
   </div>
 </template>
 
@@ -118,7 +159,6 @@ import {
   activityCheckIn
 } from "@/api/activity";
 
-// 👇 加入和正常页面一样的用户信息接口
 import { getCurrentUserInfo } from "@/api/auth";
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -136,10 +176,9 @@ export default {
   },
   mounted() {
     this.init();
-    this.fetchUserInfo(); // 👇 关键：加载用户信息
+    this.fetchUserInfo();
   },
   methods: {
-    // 👇 完全复制你能正常显示的页面逻辑
     async fetchUserInfo() {
       try {
         const res = await getCurrentUserInfo();
@@ -155,8 +194,12 @@ export default {
 
     async init() {
       await this.getActivityDetail();
-      await this.getMyApplyStatus();
+      // 只有当活动未取消时，才去获取我的报名状态，避免不必要的请求
+      if (this.activity && this.activity.status !== 3) {
+        await this.getMyApplyStatus();
+      }
     },
+
     async getActivityDetail() {
       try {
         const id = this.$route.params.id;
@@ -167,6 +210,7 @@ export default {
         ElMessage.error("获取活动详情失败");
       }
     },
+
     async getMyApplyStatus() {
       try {
         const id = this.$route.params.id;
@@ -176,6 +220,7 @@ export default {
         console.error(err);
       }
     },
+
     async handleAction() {
       const s = this.myApplication?.status;
       if (s === 1) {
@@ -187,6 +232,7 @@ export default {
       }
       await this.doApply(this.$route.params.id);
     },
+
     async doApply(activityId) {
       try {
         if (this.activity.requireAudit) {
@@ -206,6 +252,7 @@ export default {
         ElMessage.error(err.response?.data?.message || "报名失败");
       }
     },
+
     async doCancel(applicationId) {
       try {
         await cancelApplication(applicationId);
@@ -215,6 +262,7 @@ export default {
         ElMessage.error("取消失败");
       }
     },
+
     showNiceDialog() {
       const time = this.formatDate(this.activity.startTime);
       const place = this.activity.location;
@@ -242,6 +290,7 @@ export default {
         this.showConfirmCancelDialog();
       });
     },
+
     showConfirmCancelDialog() {
       ElMessageBox({
         message: `
@@ -264,6 +313,7 @@ export default {
         ElMessage.info("已取消操作");
       });
     },
+
     async doCheckIn() {
       ElMessage.info("正在获取定位…");
       navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -285,26 +335,49 @@ export default {
         ElMessage.error("获取定位失败，请打开定位权限");
       });
     },
+
+    goProfile() {
+      this.$router.push('/profile');
+    },
+
+    goBack() {
+      this.$router.push('/activity'); // 假设活动列表页路由是 /activity
+    },
+
     formatDate(time) {
       if (!time) return "";
       const d = new Date(time);
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,0)}-${String(d.getDate()).padStart(2,0)} ${String(d.getHours()).padStart(2,0)}:${String(d.getMinutes()).padStart(2,0)}`;
     },
+
     getStatusClass(status) {
-      const map = { 0: "badge-pending", 1: "badge-ongoing", 2: "badge-finished" };
+      const map = {
+        0: "badge-pending",
+        1: "badge-ongoing",
+        2: "badge-finished",
+        3: "badge-cancelled" // ✅ 新增
+      };
       return map[status];
     },
+
     getStatusText(status) {
-      const map = { 0: "待开始", 1: "进行中", 2: "已结束" };
+      const map = {
+        0: "待开始",
+        1: "进行中",
+        2: "已结束",
+        3: "已取消" // ✅ 新增
+      };
       return map[status];
-    },
-    goProfile() {
-      this.$router.push('/profile');
     }
   },
   computed: {
     pageTheme() {
-      const map = { 0: "theme-pending", 1: "theme-ongoing", 2: "theme-finished" };
+      const map = {
+        0: "theme-pending",
+        1: "theme-ongoing",
+        2: "theme-finished",
+        3: "theme-cancelled" // ✅ 新增
+      };
       return map[this.activity?.status || 0];
     },
     btnText() {
@@ -344,12 +417,19 @@ export default {
   font-family: 'Nunito', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   transition: all 0.3s ease;
 }
+
+/* ✅ 新增：已取消主题背景 */
+.theme-cancelled {
+  background: linear-gradient(180deg, #FEF2F2 0%, #FFF 100%); /* Red-50 to White */
+}
+
 .detail-container {
   max-width: 920px;
   margin: 0 auto;
   padding: 0 20px 60px;
   padding-top: 70px;
 }
+
 .theme-pending {
   background: linear-gradient(180deg, #FFF8E1 0%, #FFF 100%);
 }
@@ -359,6 +439,89 @@ export default {
 .theme-finished {
   background: linear-gradient(180deg, #F5F7FA 0%, #FFF 100%);
 }
+
+/* ✅ 新增：已取消视图样式 */
+.cancelled-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 20px;
+}
+
+.cancelled-card {
+  background: #fff;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid #fee2e2;
+}
+
+.cancelled-icon {
+  font-size: 5rem;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.cancelled-title {
+  font-size: 1.8rem;
+  color: #991B1B; /* Red-800 */
+  margin: 0 0 15px 0;
+  font-weight: 800;
+}
+
+.cancelled-desc {
+  color: #6B7280;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.cancelled-info-box {
+  background: #FEF2F2; /* Red-50 */
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.cancelled-info-box .info-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+.cancelled-info-box .info-row:last-child {
+  margin-bottom: 0;
+}
+.cancelled-info-box .label {
+  color: #9CA3AF;
+  width: 80px;
+  flex-shrink: 0;
+}
+.cancelled-info-box .value {
+  color: #374151;
+  font-weight: 600;
+}
+
+.back-btn-large {
+  background: #1E293B;
+  color: #fff;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.back-btn-large:hover {
+  transform: translateY(-2px);
+  background: #334155;
+}
+
+/* 原有样式 */
 .detail-hero {
   position: relative;
   height: 380px;
@@ -397,6 +560,8 @@ export default {
 .badge-pending { background: #FF9800; }
 .badge-ongoing { background: #4CAF50; }
 .badge-finished { background: #607D8B; }
+.badge-cancelled { background: #EF4444; color: #fff; } /* ✅ 新增 */
+
 .title {
   font-size: 36px;
   font-weight: 900;
@@ -495,6 +660,25 @@ export default {
   box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3);
 }
 .join-btn:disabled { opacity: 0.9; }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: #666;
+}
+.loader {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
 
 @media (max-width: 768px) {
   .detail-hero { height: 320px; }

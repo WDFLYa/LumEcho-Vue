@@ -46,12 +46,11 @@
             <div class="card-main">
               <div class="avatar-wrapper">
                 <img
-                    :src="user.avatar || defaultAvatar"
+                    :src="user.avatar"
                     alt="avatar"
                     class="user-avatar"
                     @error="$event.target.src = defaultAvatar"
                 />
-                <!-- ✅ 角色标识：A=管理员 / U=普通用户 / P=摄影师 -->
                 <span
                     class="role-indicator"
                     :class="getRoleClass(user.role)"
@@ -108,8 +107,8 @@ export default {
   components: { AdminNavBar },
   data() {
     return {
-      currentUserAvatar: '',
-      currentUserName: '',
+      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserName: '神秘摄影师',
       defaultAvatar: 'http://localhost:9000/lumecho/avatar.png',
 
       loading: false,
@@ -139,17 +138,16 @@ export default {
   },
   methods: {
     async fetchUserInfo() {
-      try {
+
         const res = await getCurrentUserInfo();
         const data = res.data.code === 200 ? res.data.data : res.data;
         if (data) {
           this.currentUserName = data.username;
           this.currentUserAvatar = data.avatar;
         }
-      } catch (e) { /* 忽略 */ }
+
     },
 
-    // ✅ 角色判断工具方法
     getRoleLetter(role) {
       if (role === 'admin' || role === 'ADMIN') return 'A';
       if (role === 'photographer' || role === 'PHOTOGRAPHER') return 'P';
@@ -186,10 +184,12 @@ export default {
         const res = await getUserList();
         const resData = res.data || res;
         const list = resData.code === 200 ? resData.data : resData;
+
         if (Array.isArray(list)) {
           this.userList = list.map(item => ({
             ...item,
-            avatar: item.avatar || this.defaultAvatar,
+            // ✅ 这里修复了！和你主页完全一致
+            avatar: item.authorAvatar || item.avatar || this.defaultAvatar,
             username: item.username || '未知用户',
           }));
         }
@@ -223,7 +223,6 @@ export default {
 </script>
 
 <style scoped>
-/* 样式完全保留，新增摄影师颜色 */
 .admin-user-container {
   min-height: 100vh;
   background-color: #F8FAFC;
@@ -333,7 +332,6 @@ export default {
 .avatar-wrapper { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
 .user-avatar { width: 100%; height: 100%; border-radius: 14px; object-fit: cover; border: 1px solid #F1F5F9; }
 
-/* ✅ 三色角色标识 */
 .role-indicator {
   position: absolute;
   top: -4px;
@@ -349,9 +347,9 @@ export default {
   color: #fff;
   border: 2px solid #fff;
 }
-.role-indicator.admin { background: #F59E0B; } /* 橙 - 管理员 */
-.role-indicator.user { background: #3B82F6; }   /* 蓝 - 普通用户 */
-.role-indicator.photographer { background: #EC4899; } /* 粉 - 摄影师 */
+.role-indicator.admin { background: #F59E0B; }
+.role-indicator.user { background: #3B82F6; }
+.role-indicator.photographer { background: #EC4899; }
 
 .user-details { flex: 1; min-width: 0; }
 .name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }

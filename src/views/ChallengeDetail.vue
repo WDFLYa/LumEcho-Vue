@@ -7,11 +7,13 @@
     />
 
     <main class="content-area">
+      <!-- 加载中 -->
       <div v-if="loading" class="loader-fullscreen">
         <div class="cute-loader">🌸</div>
         <p>正在加载比赛信息...</p>
       </div>
 
+      <!-- 加载错误 -->
       <div v-else-if="loadError" class="error-state">
         <div class="error-icon">😢</div>
         <p>{{ errorMessage }}</p>
@@ -19,9 +21,36 @@
         <button class="back-btn" @click="goBack">返回列表</button>
       </div>
 
-      <div v-else-if="challenge" class="detail-flow">
-        <!-- 报名/投稿阶段 -->
-        <div v-if="isActionPhase" class="phase-action">
+      <!-- ✅ 新增：活动已取消状态展示 -->
+      <div v-else-if="challenge && challenge.status === 4" class="cancelled-state">
+        <div class="cancelled-card">
+          <div class="cancelled-icon">🚫</div>
+          <h2 class="cancelled-title">很抱歉，该挑战赛已取消</h2>
+          <p class="cancelled-desc">
+            由于不可抗力或主办方安排，管理员已终止此挑战。<br>
+            给您带来的不便，我们深表歉意。
+          </p>
+
+          <div class="cancelled-info-box">
+            <div class="info-row">
+              <span class="label">挑战主题：</span>
+              <span class="value">{{ challenge.title }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">原定时间：</span>
+              <span class="value">{{ formatDate(challenge.startTime) }} ~ {{ formatDate(challenge.endTime) }}</span>
+            </div>
+          </div>
+
+          <button class="back-btn-large" @click="goBack">
+            🏠 返回挑战赛列表
+          </button>
+        </div>
+      </div>
+
+      <!-- 正常流程：报名/投稿阶段 (状态 0, 1) -->
+      <div v-else-if="challenge && isActionPhase" class="detail-flow">
+        <div class="phase-action">
           <section class="hero-section">
             <div class="hero-cover">
               <img :src="challenge.coverUrl || defaultCover" alt="Cover" />
@@ -102,15 +131,18 @@
                 <span v-else>📷 去提交作品</span>
               </button>
 
+              <!-- 理论上不会进这里，因为 v-else-if 控制了，但为了健壮性保留 -->
               <button v-else class="action-btn btn-disabled" disabled>
                 🔒 比赛已结束
               </button>
             </div>
           </section>
         </div>
+      </div>
 
-        <!-- 评审阶段 -->
-        <div v-else class="phase-review">
+      <!-- 正常流程：评审/结束阶段 (状态 2, 3) -->
+      <div v-else-if="challenge" class="detail-flow">
+        <div class="phase-review">
           <header class="review-header">
             <span :class="['status-badge', getStatusClass(challenge.status)]">
               {{ getStatusText(challenge.status) }}
@@ -119,7 +151,7 @@
             <p class="sub-text">
               {{ challenge.status === 2 ? '请为优秀的作品打分' : '比赛已结束，最终结果如下' }}
             </p>
-            <div class="review-time-bar" style="margin-top:15px;font-size:14px;color:#666;display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+            <div class="review-time-bar">
               <span>🟢 开始：{{ formatDate(challenge.startTime) }}</span>
               <span>📅 截止：{{ formatDate(challenge.endTime) }}</span>
               <span>🏁 评审结束：{{ formatDate(challenge.reviewEndTime) }}</span>
@@ -132,7 +164,7 @@
               <div v-if="topSubmissions[1]" class="podium-item rank-2">
                 <div class="medal">🥈</div>
                 <div class="photo-frame">
-                  <img :src="topSubmissions[1].authorAvatar || defaultCover" />
+                  <img :src="topSubmissions[1].coverUrl || defaultCover" />
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[1].title }}</div>
@@ -144,7 +176,7 @@
                 <div class="medal">🥇</div>
                 <div class="crown">👑</div>
                 <div class="photo-frame large">
-                  <img :src="topSubmissions[0].authorAvatar || defaultCover" />
+                  <img :src="topSubmissions[0].coverUrl || defaultCover" />
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[0].title }}</div>
@@ -155,7 +187,7 @@
               <div v-if="topSubmissions[2]" class="podium-item rank-3">
                 <div class="medal">🥉</div>
                 <div class="photo-frame">
-                  <img :src="topSubmissions[2].authorAvatar || defaultCover" />
+                  <img :src="topSubmissions[2].coverUrl || defaultCover" />
                 </div>
                 <div class="user-info">
                   <div class="name">{{ topSubmissions[2].title }}</div>
@@ -205,7 +237,7 @@
       </div>
     </main>
 
-    <!-- 作品详情弹窗 -->
+    <!-- 作品详情弹窗 (保持不变) -->
     <div v-if="showWorkModal" class="score-modal-mask" @click="closeWorkModal">
       <div class="score-modal" @click.stop>
         <div class="score-left">
@@ -213,7 +245,6 @@
         </div>
         <div class="score-right">
           <h3>作品评分详情</h3>
-
           <div class="score-info">
             <div class="info-item">
               <label>最终得分</label>
@@ -224,9 +255,7 @@
               <span>{{ scoreList.length }} 人</span>
             </div>
           </div>
-
           <div class="divider"></div>
-
           <div class="score-history" v-if="scoreList.length">
             <label>所有评委评分记录</label>
             <div class="score-item" v-for="s in scoreList" :key="s.id">
@@ -238,7 +267,6 @@
             </div>
           </div>
           <div v-else class="no-score-tip">暂无评分</div>
-
           <button
               class="score-btn"
               v-if="canVote && !hasScored"
@@ -253,7 +281,7 @@
       </div>
     </div>
 
-    <!-- 打分弹窗 -->
+    <!-- 打分弹窗 (保持不变) -->
     <div v-if="showScoreModal" class="score-modal-mask" @click="closeScoreModal">
       <div class="score-modal" @click.stop>
         <div class="score-left">
@@ -332,6 +360,7 @@ export default {
     isActionPhase() {
       if (!this.challenge) return false
       const s = Number(this.challenge.status)
+      // 只有 0 和 1 是行动阶段，4(已取消) 在上面单独处理了
       return s === 0 || s === 1
     },
     canVote() {
@@ -377,7 +406,6 @@ export default {
       try {
         const res = await getCurrentUserInfo();
         const data = res.data.code === 200 ? res.data.data : res.data;
-
         if (data) {
           this.currentUserAvatar = data.avatar || this.currentUserAvatar;
           this.currentUserName = data.username || this.currentUserName;
@@ -403,6 +431,7 @@ export default {
         this.applyStatus = statusData.applyStatus ?? null
         this.hasSubmittedWork = !!statusData.hasSubmitted
 
+        // 如果是评审中或已结束，加载作品列表
         if ([2, 3].includes(this.challenge.status)) {
           await this.fetchSubmissions(id)
         }
@@ -490,7 +519,7 @@ export default {
       this.$router.push('/profile')
     },
     goBack() {
-      this.$router.push('/activity')
+      this.$router.push('/challenge') // 或者 /challenges，根据你的路由配置
     },
     retry() {
       this.fetchDetail(this.$route.params.id)
@@ -501,22 +530,31 @@ export default {
       if (s === 1) return 'status-active'
       if (s === 2) return 'status-review'
       if (s === 3) return 'status-ended'
+      if (s === 4) return 'status-cancelled' // ✅ 新增
       return ''
     },
     getStatusText(s) {
-      const m = { 0: '未开始', 1: '进行中', 2: '评审中', 3: '已结束' }
+      const m = {
+        0: '未开始',
+        1: '进行中',
+        2: '评审中',
+        3: '已结束',
+        4: '已取消' // ✅ 新增
+      }
       return m[Number(s)] || '未知'
     },
     formatDate(time) {
       if (!time) return ''
       const d = new Date(time)
-      return `${d.getMonth() + 1}/${d.getDate()}`
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
   }
 }
 </script>
 
 <style scoped>
+/* ... 保持原有样式不变，仅在底部追加 cancelled-state 相关样式 ... */
+
 .challenge-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #F8F5FA 0%, #F0E8F5 50%, #FFFFFF 100%);
@@ -528,6 +566,9 @@ export default {
   margin: 0 auto;
   padding: 40px 20px;
 }
+
+/* ... 省略中间已有的 loader, error, hero, info, review, podium, works 等样式 ... */
+/* 为了节省篇幅，这里只列出新增的 cancelled-state 样式，其他样式请保留原样 */
 
 .loader-fullscreen, .error-state, .loading-works {
   display: flex;
@@ -559,6 +600,87 @@ export default {
   color: #333;
 }
 
+/* ✅ 新增：已取消状态样式 */
+.cancelled-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+}
+
+.cancelled-card {
+  background: #fff;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid #fee2e2;
+}
+
+.cancelled-icon {
+  font-size: 5rem;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.cancelled-title {
+  font-size: 1.8rem;
+  color: #991B1B; /* Red-800 */
+  margin: 0 0 15px 0;
+  font-weight: 800;
+}
+
+.cancelled-desc {
+  color: #6B7280;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+.cancelled-info-box {
+  background: #FEF2F2; /* Red-50 */
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.cancelled-info-box .info-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+.cancelled-info-box .info-row:last-child {
+  margin-bottom: 0;
+}
+.cancelled-info-box .label {
+  color: #9CA3AF;
+  width: 80px;
+  flex-shrink: 0;
+}
+.cancelled-info-box .value {
+  color: #374151;
+  font-weight: 600;
+}
+
+.back-btn-large {
+  background: #1E293B;
+  color: #fff;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.back-btn-large:hover {
+  transform: translateY(-2px);
+  background: #334155;
+}
+
+/* 原有样式继续... */
 .status-badge {
   font-size: 12px;
   font-weight: 800;
@@ -570,6 +692,7 @@ export default {
 .status-gray { background: #f5f5f5; color: #757575; }
 .status-review { background: #E3F2FD; color: #1565C0; }
 .status-ended { background: #FFF3E0; color: #E65100; }
+.status-cancelled { background: #FEF2F2; color: #DC2626; } /* ✅ 新增 */
 
 .hero-section {
   background: #ffe4ff;
@@ -734,6 +857,15 @@ export default {
 .sub-text {
   color: #666;
   font-size: 1rem;
+}
+.review-time-bar {
+  margin-top:15px;
+  font-size:14px;
+  color:#666;
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  justify-content:center;
 }
 
 .podium-section {

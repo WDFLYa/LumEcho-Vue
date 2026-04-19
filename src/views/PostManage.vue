@@ -1,115 +1,220 @@
 <template>
   <div class="post-manage-container">
     <main class="content-wrapper">
+
+      <!-- 标题 -->
       <header class="page-header">
-        <div class="welcome-text">
-          <h1>📝 帖子管理</h1>
-          <p>查看与编辑帖子状态</p>
-        </div>
+        <h1>📝 帖子管理</h1>
+        <p>管理所有用户发布内容</p>
       </header>
 
-      <!-- 纯文字列表，简洁高效 -->
+      <!-- 搜索 -->
+      <div class="search-bar">
+        <el-input
+            v-model="keyword"
+            placeholder="搜索标题 / 内容"
+            clearable
+            @keyup.enter="handleSearch"
+            style="width: 260px"
+        />
+        <el-button type="primary" @click="handleSearch">
+          搜索
+        </el-button>
+      </div>
+
+      <!-- 状态筛选 -->
+      <div class="filter-bar">
+        <el-radio-group v-model="filterStatus" @change="handleSearch">
+          <el-radio-button label="ALL">全部</el-radio-button>
+          <el-radio-button :label="1">正常</el-radio-button>
+          <el-radio-button :label="2">封禁</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- 表格 -->
       <div class="post-table">
+
+        <!-- 表头 -->
         <div class="table-head">
           <span>ID</span>
-          <span>标题</span>
+          <span>封面</span>
+          <span>内容</span>
+          <span>作者</span>
+          <span>互动</span>
           <span>分类</span>
-          <span>发布时间</span>
+          <span>时间</span>
           <span>状态</span>
           <span>操作</span>
         </div>
 
+        <!-- 数据 -->
         <div class="table-row" v-for="post in posts" :key="post.id">
-          <span>{{ post.id }}</span>
-          <span class="title">{{ post.title || '无标题' }}</span>
-          <span>{{ post.category || '—' }}</span>
-          <span>{{ post.createTime || '—' }}</span>
+
+          <span class="id">{{ post.id }}</span>
+
+          <!-- 封面 -->
           <span>
-            <el-tag size="mini" :type="post.status === 1 ? 'success' : 'danger'">
+            <img class="cover" :src="post.cover || defaultCover" />
+          </span>
+
+          <!-- 内容 -->
+          <span class="title">
+            {{ post.title || '无标题' }}
+          </span>
+
+          <!-- 作者（更紧凑） -->
+          <span class="author">
+            <img class="avatar" :src="post.avatar" />
+            <span class="name">{{ post.username }}</span>
+          </span>
+
+          <!-- 互动（删除浏览量，做成一行更紧凑） -->
+          <span class="meta">
+            👍 {{ post.likes || 0 }} · 💬 {{ post.comments || 0 }}
+          </span>
+
+          <span>{{ post.category || '—' }}</span>
+
+          <!-- 时间 -->
+          <span class="time">
+            {{ formatTime(post.createTime) }}
+          </span>
+
+          <!-- 状态 -->
+          <span>
+            <el-tag
+                size="small"
+                :type="post.status === 1 ? 'success' : 'danger'"
+            >
               {{ post.status === 1 ? '正常' : '封禁' }}
             </el-tag>
           </span>
+
+          <!-- 操作 -->
           <span>
-            <el-button type="primary" size="mini" @click="handleChangeStatus(post)">
+            <el-button
+                type="primary"
+                size="small"
+                @click="handleChangeStatus(post)"
+            >
               {{ post.status === 1 ? '封禁' : '恢复' }}
             </el-button>
           </span>
+
         </div>
       </div>
 
+      <!-- 加载更多 -->
       <div class="load-more" v-if="hasMore">
         <button class="load-btn" @click="loadMore" :disabled="loading">
           {{ loading ? '加载中...' : '加载更多' }}
         </button>
       </div>
+
     </main>
   </div>
 </template>
 
 <script>
-import { getHomePosts } from "@/api/post.js";
+import { getAllPosts, updatePostStatus } from "@/api/post.js";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 export default {
   name: "PostManage",
+
   data() {
     return {
       posts: [],
+
+      keyword: "",
+      filterStatus: "ALL",
+
       loading: false,
       hasMore: true,
+
       offset: 0,
-      limit: 15
+      limit: 10,
+
+      defaultCover: "https://via.placeholder.com/80"
     };
   },
+
   created() {
-    this.fetchPosts();
+    this.fetchPosts(true);
   },
+
   methods: {
-    async fetchPosts() {
+
+    formatTime(time) {
+      if (!time) return "—";
+      return time.replace("T", " ").slice(0, 16);
+    },
+
+    async fetchPosts(reset = false) {
+
       if (this.loading) return;
       this.loading = true;
+
+      if (reset) {
+        this.offset = 0;
+        this.posts = [];
+        this.hasMore = true;
+      }
+
       try {
-        const res = await getHomePosts({
+        const res = await getAllPosts({
           offset: this.offset,
           limit: this.limit,
-          sort: "time"
+          keyword: this.keyword,
+          status: this.filterStatus === "ALL" ? null : this.filterStatus
         });
-        const resp = res.data.code === 200 ? res.data.data : res.data;
+
+        const resp = res.data.data;
         const list = resp.data || [];
 
-        if (this.offset === 0) {
-          this.posts = list;
-        } else {
-          this.posts = [...this.posts, ...list];
-        }
+        this.posts.push(...list);
 
-        this.hasMore = resp.hasMore && list.length > 0;
         this.offset += list.length;
+        this.hasMore = resp.hasMore;
+
       } catch (e) {
-        console.error("加载失败", e);
+        ElMessage.error("加载失败");
       } finally {
         this.loading = false;
       }
     },
 
-    loadMore() {
-      this.fetchPosts();
+    handleSearch() {
+      this.fetchPosts(true);
     },
 
-    // 接收 post 对象，无未使用变量，eslint 安全
+    loadMore() {
+      this.fetchPosts(false);
+    },
+
     async handleChangeStatus(post) {
-      const tip = post.status === 1 ? "确定封禁此帖子？" : "确定恢复此帖子？";
-      if (!confirm(tip)) return;
+      const isBan = post.status === 1;
 
       try {
-        // 这里等你后端接口写完再替换
-        // await updatePostStatus({ postId: post.id, status: post.status === 1 ? 2 : 1 });
+        await ElMessageBox.confirm(
+            isBan ? "确定封禁该帖子？" : "确定恢复该帖子？",
+            "提示",
+            { type: "warning" }
+        );
 
-        this.$message.success("状态已更新");
-        this.offset = 0;
-        this.posts = [];
-        this.fetchPosts();
-      } catch (err) {
-        this.$message.error("操作失败");
+        await updatePostStatus({
+          id: post.id,
+          status: isBan ? "BANNED" : "NORMAL"
+        });
+
+        ElMessage.success("操作成功");
+
+        this.fetchPosts(true);
+
+      } catch (e) {
+        if (e !== "cancel") {
+          ElMessage.error("操作失败");
+        }
       }
     }
   }
@@ -119,9 +224,7 @@ export default {
 <style scoped>
 .post-manage-container {
   min-height: 100vh;
-  background: #f7fafc;
-  font-family: "Nunito", "Segoe UI", sans-serif;
-  color: #455a64;
+  background: linear-gradient(180deg, #f6f8fb, #eef2f7);
 }
 
 .content-wrapper {
@@ -130,69 +233,114 @@ export default {
   padding: 30px 20px;
 }
 
-.page-header {
-  margin-bottom: 24px;
-}
-
-.welcome-text h1 {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  color: #333;
-}
-
-.welcome-text p {
+/* header */
+.page-header h1 {
   margin: 0;
+}
+.page-header p {
   color: #888;
-  font-size: 14px;
+  margin-top: 5px;
 }
 
+/* search */
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+/* table */
 .post-table {
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  border-radius: 14px;
   overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+}
+
+/* ⭐ 优化重点：更紧凑布局 */
+.table-head,
+.table-row {
+  display: grid;
+  grid-template-columns: 50px 80px 1.3fr 130px 120px 80px 120px 80px 90px;
+  gap: 6px;
+  padding: 10px 12px;
+  align-items: center;
+  font-size: 13px;
 }
 
 .table-head {
-  display: grid;
-  grid-template-columns: 80px 1fr 100px 160px 100px 100px;
-  padding: 12px 16px;
+  background: #f5f7fa;
   font-weight: 600;
-  background: #f8f9fa;
-  font-size: 13px;
 }
 
 .table-row {
-  display: grid;
-  grid-template-columns: 80px 1fr 100px 160px 100px 100px;
-  padding: 12px 16px;
-  font-size: 13px;
   border-top: 1px solid #eee;
-  align-items: center;
 }
 
 .table-row:hover {
-  background: #f8f9fa;
+  background: #f9fbff;
 }
 
+/* 封面 */
+.cover {
+  width: 70px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* 内容 */
 .title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 10px;
+  font-weight: 500;
 }
 
+/* 作者（更紧凑） */
+.author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.name {
+  font-size: 12px;
+}
+
+/* 互动（更紧凑一行） */
+.meta {
+  font-size: 12px;
+  color: #666;
+}
+
+/* 时间 */
+.time {
+  font-size: 12px;
+  color: #888;
+}
+
+/* load */
 .load-more {
   text-align: center;
   margin-top: 20px;
 }
 
 .load-btn {
-  padding: 8px 20px;
+  padding: 6px 16px;
   border: 1px solid #ddd;
-  border-radius: 6px;
   background: #fff;
+  border-radius: 8px;
   cursor: pointer;
+}
+
+.load-btn:hover {
+  background: #f5f5f5;
 }
 </style>

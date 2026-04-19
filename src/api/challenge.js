@@ -20,6 +20,10 @@ export function getChallengeSubmissions(challengeId) {
     })
 }
 
+export function cancelChallenge(id) {
+    return request.post(`/api/challenge/cancel/${id}`);
+}
+
 export function createChallenge(data) {
     return request({
         url: '/api/challenge/create',

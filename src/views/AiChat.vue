@@ -12,10 +12,7 @@
       </div>
     </div>
 
-    <div
-        class="message-container"
-        ref="msgContainer"
-    >
+    <div class="message-container" ref="msgContainer">
       <div v-if="messages.length === 0" class="empty-chat">
         <div class="empty-icon">📷</div>
         <p>快来向摄影师提问吧～</p>
@@ -52,9 +49,9 @@
       <button
           class="send-btn"
           @click="sendMessage"
-          :disabled="!inputText.trim()"
+          :disabled="!inputText.trim() || isStreaming"
       >
-        发送
+        {{ isStreaming ? '生成中...' : '发送' }}
       </button>
     </div>
   </div>
@@ -71,6 +68,7 @@ export default {
     return {
       messages: [],
       inputText: "",
+      isStreaming: false,
       currentUser: {
         username: "我",
         avatar: "http://localhost:9000/specialty/avatar.png",
@@ -81,30 +79,22 @@ export default {
       },
     };
   },
-  watch: {
-    messages: {
-      handler() {
-        this.$nextTick(() => {
-          this.forceBottom();
-        });
-      },
-      deep: true,
-    },
-  },
   async mounted() {
     await this.loadAllUserInfo();
-    await this.loadTargetUserInfo(); // ✅ 调用正确方法
+    await this.loadTargetUserInfo();
     await this.loadHistory();
 
-    setTimeout(() => {
+    this.$nextTick(() => {
       this.forceBottom();
-    }, 100);
+    });
   },
   methods: {
     forceBottom() {
       const el = this.$refs.msgContainer;
       if (el) {
-        el.scrollTop = el.scrollHeight;
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight;
+        });
       }
     },
 
@@ -119,14 +109,13 @@ export default {
       }
     },
 
-    // ✅✅✅ 这是你要的 100% 正确版本！！！
     async loadTargetUserInfo() {
       const photographerId = this.$route.params.photographerId;
       if (!photographerId) return;
 
       try {
         const res = await getUserById(photographerId);
-        if (res.data.code === 200) {
+        if (res.data?.code === 200) {
           this.targetUser = res.data.data;
         }
       } catch (e) {
@@ -150,22 +139,26 @@ export default {
 
     async sendMessage() {
       const text = this.inputText.trim();
-      if (!text) return;
+      if (!text || this.isStreaming) return;
 
+      this.isStreaming = true;
+      // 1. 添加用户消息
       this.messages.push({ role: "user", content: text });
       this.inputText = "";
 
-      const aiMsg = { role: "assistant", content: "" };
-      this.messages.push(aiMsg);
+      // 2. 添加空的 AI 消息占位
+      // 在 Vue 3 中，push 进数组的对象属性也是响应式的，直接修改即可
+      const aiMsgIndex = this.messages.length;
+      this.messages.push({ role: "assistant", content: "" });
+
       this.forceBottom();
 
       try {
-        const token = localStorage.getItem("user_token");
         const response = await fetch("http://localhost:8080/ai/chat-stream", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${localStorage.getItem("user_token")}`,
           },
           body: JSON.stringify({
             photographerId: this.$route.params.photographerId,
@@ -173,34 +166,44 @@ export default {
           }),
         });
 
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let done = false;
+        let buffer = "";
 
-        while (!done) {
-          const result = await reader.read();
-          done = result.done;
+        while (true) {
+          const { value, done } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(result.value, { stream: true });
-          const lines = chunk.split(/\n+/).filter((i) => i.trim());
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop(); // 保留最后一行可能不完整的数据
 
           for (const line of lines) {
-            const cleanLine = line.trim();
-            if (cleanLine === "data: [DONE]") {
-              done = true;
-              break;
+            let trimmed = line.trim();
+            if (!trimmed) continue;
+
+            // 🔥 核心修复：循环剥去所有 "data:" 前缀
+            // 兼容后端返回 "data: xxx" 或错误的 "data: data: xxx"
+            while (trimmed.startsWith("data:")) {
+              trimmed = trimmed.slice(5).trim();
             }
-            if (cleanLine.startsWith("data: ")) {
-              aiMsg.content += cleanLine.replace("data: ", "");
-              this.$forceUpdate();
-              this.forceBottom();
+
+            if (trimmed === "[DONE]") break;
+
+            // ✅ Vue 3 直接赋值即可触发更新，无需 $set
+            if (trimmed) {
+              this.messages[aiMsgIndex].content += trimmed;
             }
           }
+          this.forceBottom();
         }
       } catch (e) {
-        aiMsg.content = "😭 摄影师暂时离线啦~";
-        this.$forceUpdate();
+        console.error("流式请求失败:", e);
+        this.messages[aiMsgIndex].content += "\n😭 网络异常或摄影师暂时离线啦~";
+      } finally {
+        this.isStreaming = false;
         this.forceBottom();
       }
     },
@@ -209,6 +212,7 @@ export default {
 </script>
 
 <style scoped>
+/* 样式保持不变 */
 .ai-chat-page {
   min-height: 100vh;
   background: #fafafc;

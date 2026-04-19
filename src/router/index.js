@@ -19,6 +19,9 @@ import AiChat from '@/views/AiChat.vue'
 import ActivityDetail from '@/views/ActivityDetail.vue'
 import ActivityCreate from '@/views/ActivityCreate.vue'
 import PostManage from '@/views/PostManage.vue'
+import AdminCompetitions from '@/views/AdminChallengeManage.vue'
+import AdminEvents from '@/views/AdminActivityManage.vue'
+
 const routes = [
     {
         path: '/',
@@ -134,6 +137,16 @@ const routes = [
         name: 'AdminChallengeApplies',
         component: () => import('@/views/AdminApplyManagement.vue'),
         meta: { requiresAuth: true, role: 'admin' }
+    },
+    {
+        path: '/admin/competitions',
+        name: 'AdminCompetitions',
+        component: AdminCompetitions
+    },
+    {
+        path: "/admin/events",
+            name: "AdminEvents",
+        component: AdminEvents
     }
 ]
 

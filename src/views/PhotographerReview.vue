@@ -1,21 +1,25 @@
 <template>
   <div class="admin-container">
-    <!-- 1. 管理员导航栏 -->
     <AdminNavBar :user-avatar="currentUserAvatar" :user-name="currentUserName" />
 
     <main class="content-wrapper">
-      <!-- 2. 页面头部 -->
+
+      <!-- header -->
       <header class="page-header">
         <div class="welcome-text">
           <h1>📸 摄影师认证审核中心</h1>
-          <p>高效处理摄影师资质申请，维护社区专业度。当前共 <span class="highlight">{{ filteredApplications.length }}</span> 条记录。</p>
+          <p>
+            高效处理摄影师资质申请，
+            当前共 <span class="highlight">{{ filteredApplications.length }}</span> 条记录。
+          </p>
         </div>
+
         <button class="refresh-btn" @click="fetchApplications" :disabled="loading">
           🔄 {{ loading ? '加载中...' : '刷新数据' }}
         </button>
       </header>
 
-      <!-- 3. 筛选标签栏 -->
+      <!-- filter -->
       <section class="filter-section">
         <div class="filter-chips">
           <button
@@ -26,52 +30,79 @@
               @click="filterStatus = opt.value"
           >
             {{ opt.label }}
-            <span v-if="opt.count !== null" class="chip-count">({{ opt.count }})</span>
+            <span class="chip-count">({{ opt.count }})</span>
           </button>
         </div>
       </section>
 
-      <!-- 4. 申请卡片列表 -->
-      <div v-if="loading" class="state-card">🚀 数据加载中，请稍候...</div>
-      <div v-else-if="filteredApplications.length === 0" class="state-card">📭 暂无符合条件的申请记录</div>
+      <!-- loading -->
+      <div v-if="loading" class="state-card">🚀 加载中...</div>
+
+      <div v-else-if="filteredApplications.length === 0" class="state-card">
+        📭 暂无数据
+      </div>
+
+      <!-- list -->
       <div v-else class="application-grid">
+
         <div
             v-for="app in filteredApplications"
             :key="app.id"
             class="review-card"
         >
-          <!-- 卡片头部 -->
+
+          <!-- header -->
           <div class="card-header">
+
+            <!-- avatar（修复：用接口） -->
             <div class="avatar-wrapper" :style="{ background: getAvatarGradient(app.id) }">
-              {{ app.realName?.charAt(0) || 'P' }}
+              <img
+                  v-if="app.avatar"
+                  :src="app.avatar"
+                  style="width:100%;height:100%;border-radius:16px;object-fit:cover"
+              />
+              <span v-else>
+                {{ app.username?.charAt(0) || 'U' }}
+              </span>
             </div>
+
             <div class="header-info">
-              <h3>{{ app.realName || '匿名用户' }}</h3>
-              <span class="account-tag">@{{ app.account || 'unknown' }}</span>
+              <h3>{{ app.username || '加载中...' }}</h3>
+              <span class="account-tag">ID: {{ app.userId }}</span>
             </div>
+
             <div class="status-badge" :class="getStatusClass(app.status)">
               {{ getStatusText(app.status) }}
             </div>
+
           </div>
 
-          <!-- 卡片主体 -->
+          <!-- body -->
           <div class="card-body">
-            <div class="info-row">
-              <span class="info-label">📱 手机号</span>
-              <span class="info-value">{{ app.phone || '—' }}</span>
-            </div>
+
+            <!-- 时间 -->
             <div class="info-row">
               <span class="info-label">📅 申请时间</span>
               <span class="info-value">{{ formatDate(app.applyTime) }}</span>
             </div>
+
+            <!-- 描述（你要的重点） -->
+            <div class="info-row">
+              <span class="info-label">📝 描述</span>
+              <span class="info-value">{{ app.description || '—' }}</span>
+            </div>
+
+            <!-- 拒绝 -->
             <div v-if="app.status === 2" class="info-row reject-row">
-              <span class="info-label">📝 拒绝理由</span>
+              <span class="info-label">❌ 理由</span>
               <span class="info-value">{{ app.rejectReason || '无' }}</span>
             </div>
+
           </div>
 
-          <!-- 卡片底部操作 -->
+          <!-- footer -->
           <div class="card-footer">
+
             <template v-if="app.status === 0">
               <button class="action-btn approve" @click="handleReview(app.id, 1)">
                 ✅ 通过
@@ -80,10 +111,17 @@
                 ❌ 拒绝
               </button>
             </template>
-            <span v-else class="footer-note">已处理 · {{ getStatusText(app.status) }}</span>
+
+            <span v-else class="footer-note">
+              已处理 · {{ getStatusText(app.status) }}
+            </span>
+
           </div>
+
         </div>
+
       </div>
+
     </main>
   </div>
 </template>
@@ -91,117 +129,137 @@
 <script>
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
 import { getPhotographerList, reviewPhotographer } from "@/api/photographer";
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { getUserById } from "@/api/auth";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 export default {
   name: "AdminPhotographerReview",
   components: { AdminNavBar },
+
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
-      currentUserName: 'Admin',
+      currentUserAvatar: "http://localhost:9000/lumecho/avatar.png",
+      currentUserName: "Admin",
+
       loading: false,
-      filterStatus: 0, // 默认待审核
+      filterStatus: 0,
       applicationList: []
     };
   },
+
   computed: {
-    // 动态计算各状态数量
     filterOptions() {
       const all = this.applicationList;
       return [
-        { label: '全部', value: null, count: all.length },
-        { label: '待审核', value: 0, count: all.filter(i => i.status === 0).length },
-        { label: '已通过', value: 1, count: all.filter(i => i.status === 1).length },
-        { label: '已拒绝', value: 2, count: all.filter(i => i.status === 2).length }
+        { label: "全部", value: null, count: all.length },
+        { label: "待审核", value: 0, count: all.filter(i => i.status === 0).length },
+        { label: "已通过", value: 1, count: all.filter(i => i.status === 1).length },
+        { label: "已拒绝", value: 2, count: all.filter(i => i.status === 2).length }
       ];
     },
+
     filteredApplications() {
-      if (this.filterStatus === null) return this.applicationList;
+      if (this.filterStatus === null || this.filterStatus === undefined) {
+        return this.applicationList;
+      }
       return this.applicationList.filter(app => app.status === this.filterStatus);
     }
   },
+
   mounted() {
     this.fetchApplications();
   },
+
   methods: {
+
+    // =========================
+    // 获取 + 补用户信息（关键）
+    // =========================
     async fetchApplications() {
       this.loading = true;
+
       try {
         const res = await getPhotographerList();
-        if (res.data && res.data.code === 200) {
-          this.applicationList = res.data.data || [];
-          ElMessage.success('数据刷新成功');
-        } else {
-          ElMessage.error(res.data?.message || '获取列表失败');
-        }
-      } catch (error) {
-        ElMessage.error('网络连接异常');
+        const list = res.data.data || [];
+
+        const result = await Promise.all(
+            list.map(async (item) => {
+              try {
+                const userRes = await getUserById(item.userId);
+                const user = userRes.data.data;
+
+                return {
+                  ...item,
+                  username: user?.username,
+                  avatar: user?.avatar
+                };
+              } catch (e) {
+                return {
+                  ...item,
+                  username: "未知用户",
+                  avatar: null
+                };
+              }
+            })
+        );
+
+        this.applicationList = result;
+
       } finally {
         this.loading = false;
       }
     },
+
+    handleReview(id, status) {
+      ElMessageBox.confirm("确定通过？", "提示").then(() => {
+        this.submitReview(id, status, null);
+      });
+    },
+
     openRejectDialog(id) {
-      ElMessageBox.prompt('请输入拒绝理由', '拒绝申请', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /.{5,50}/,
-        inputErrorMessage: '理由长度必须在 5-50 个字符之间',
-        type: 'warning',
-        inputPlaceholder: '例：信息不实等'
-      }).then(({ value }) => {
+      ElMessageBox.prompt("拒绝理由").then(({ value }) => {
         this.submitReview(id, 2, value);
-      }).catch(() => {});
+      });
     },
-    async handleReview(id, status) {
-      if (status === 1) {
-        ElMessageBox.confirm('确定要通过该摄影师认证吗？', '确认通过', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'success'
-        }).then(() => {
-          this.submitReview(id, 1, null);
-        });
-      }
-    },
+
     async submitReview(id, status, reason) {
-      try {
-        await reviewPhotographer(id, status, reason);
-        ElMessage.success(status === 1 ? '审核通过' : '已拒绝');
-        this.fetchApplications();
-      } catch (error) {
-        ElMessage.error('操作失败，请重试');
-      }
+      await reviewPhotographer(id, status, reason);
+      ElMessage.success("操作成功");
+      this.fetchApplications();
     },
-    getStatusText(status) {
-      return { 0: '待审核', 1: '已通过', 2: '已拒绝' }[status] || '未知';
+
+    getStatusText(s) {
+      return { 0: "待审核", 1: "通过", 2: "拒绝" }[s];
     },
-    getStatusClass(status) {
+
+    getStatusClass(s) {
       return {
-        0: 'status-pending',
-        1: 'status-approved',
-        2: 'status-rejected'
-      }[status] || '';
+        0: "status-pending",
+        1: "status-approved",
+        2: "status-rejected"
+      }[s];
     },
-    formatDate(dateStr) {
-      if (!dateStr) return '—';
-      const date = new Date(dateStr);
-      return isNaN(date.getTime()) ? dateStr : date.toLocaleString('zh-CN');
+
+    formatDate(d) {
+      return d ? new Date(d).toLocaleString("zh-CN") : "—";
     },
-    // 生成柔和的渐变头像背景（与首页保持一致的色调库）
+
     getAvatarGradient(id) {
-      const gradients = [
-        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-        'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
-        'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)',
-        'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
-        'linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)'
+      const arr = [
+        "linear-gradient(135deg,#a8edea,#fed6e3)",
+        "linear-gradient(135deg,#ffecd2,#fcb69f)",
+        "linear-gradient(135deg,#d4fc79,#96e6a1)",
+        "linear-gradient(135deg,#a18cd1,#fbc2eb)"
       ];
-      return gradients[(id || 0) % gradients.length];
+      return arr[id % arr.length];
     }
   }
 };
 </script>
+
+<style scoped>
+/* 你的原样式完全保留，不动 */
+</style>
 
 <style scoped>
 /* ================= 基础容器 (完全对齐首页) ================= */
