@@ -107,7 +107,7 @@
           <div class="input-wrapper">
             <textarea
                 v-model="newCommentContent"
-                placeholder="说点什么吧... 哪怕是一个表情也好呀 (◍•ᴗ•◍)"
+                placeholder="说点什么吧... 哪怕是一个表情也好呀"
                 rows="2"
             ></textarea>
             <button class="submit-btn" @click="submitComment" :disabled="!newCommentContent.trim() || submitting">

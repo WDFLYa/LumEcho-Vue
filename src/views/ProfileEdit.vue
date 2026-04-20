@@ -156,7 +156,7 @@
                 <span class="label-icon">📝</span> 个人简介
               </label>
               <div class="input-group">
-                <textarea v-model="formData.bio" placeholder="介绍一下你自己，比如擅长什么风格... (◍•ᴗ•◍)" rows="4" maxlength="200" class="input-field textarea"></textarea>
+                <textarea v-model="formData.bio" placeholder="介绍一下你自己，比如擅长什么风格..." rows="4" maxlength="200" class="input-field textarea"></textarea>
                 <span class="input-suffix">{{ formData.bio?.length || 0 }}/200</span>
               </div>
             </div>

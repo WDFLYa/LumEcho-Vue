@@ -215,7 +215,8 @@ export default {
     };
   },
   mounted() {
-    this.fetchPosts();
+    // 🔥 修复BUG：这里已经注释掉，防止和 activated 重复请求
+    // this.fetchPosts();
     this.fetchUserInfo();
     this.fetchCategories();
   },
