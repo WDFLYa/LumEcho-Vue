@@ -16,7 +16,6 @@
         </div>
       </header>
 
-      <!-- ================= Tab 切换导航 ================= -->
       <div class="tab-navigation">
         <div
             v-for="tab in tabs"
@@ -33,10 +32,7 @@
         </div>
       </div>
 
-      <!-- ================= 内容展示区 ================= -->
       <div class="content-area">
-
-        <!-- 1. 挑战赛列表 (当 Tab 为 'all' 或 'challenge' 时显示) -->
         <div v-if="activeTab === 'all' || activeTab === 'challenge'" class="section-block">
           <h2 class="section-title" v-if="activeTab === 'challenge'">🏆 挑战赛列表</h2>
 
@@ -50,7 +46,11 @@
                     {{ challenge.startTime?.slice(0,10) }} 至
                     {{ challenge.endTime?.slice(0,10) }}
                   </p>
-                  <p class="small">报名人数：{{ challenge.participantCount }}</p>
+                  <p class="small">
+                    <!-- 这里我帮你改好了！ -->
+                    总报名：{{ challenge.applyCount || 0 }} |
+                    已通过：{{ challenge.participantCount || 0 }}
+                  </p>
                 </div>
               </div>
 
@@ -105,7 +105,6 @@
           </div>
         </div>
 
-        <!-- 2. 活动列表 (当 Tab 为 'all' 或 'activity' 时显示) -->
         <div v-if="activeTab === 'all' || activeTab === 'activity'" class="section-block">
           <h2 class="section-title" v-if="activeTab === 'activity'">🎯 活动列表</h2>
 
@@ -119,7 +118,10 @@
                     {{ activity.startTime?.slice(0,10) }} 至
                     {{ activity.endTime?.slice(0,10) }}
                   </p>
-                  <p class="small">报名人数：{{ activity.currentParticipants }}</p>
+                  <p class="small">
+                    总报名：{{ activity.applyCount || 0 }} |
+                    已通过：{{ activity.currentParticipants }}
+                  </p>
                 </div>
               </div>
 
@@ -174,14 +176,11 @@
           </div>
         </div>
 
-        <!-- 空状态 -->
         <div v-if="filteredChallenges.length === 0 && filteredActivities.length === 0" class="empty-state">
           <p>暂无待审核内容</p>
         </div>
-
       </div>
 
-      <!-- 拒绝弹窗 -->
       <el-dialog v-model="rejectVisible" title="拒绝申请" width="500px">
         <el-input v-model="rejectRemark" type="textarea" rows="3" placeholder="请输入拒绝理由" />
         <template #footer>
@@ -213,12 +212,10 @@ import {
   rejectApply
 } from '@/api/activity.js'
 
-// 用户信息
 const currentUserAvatar = ref('')
 const currentUserName = ref('')
-const currentDate = ref(new Date().toLocaleDateString()) // 补充缺失的日期变量
+const currentDate = ref(new Date().toLocaleDateString())
 
-// 数据
 const challengeList = ref([])
 const activityList = ref([])
 
@@ -228,30 +225,25 @@ const expandedActivityId = ref(null)
 const challengeTableData = ref([])
 const activityTableData = ref([])
 
-// Tab 状态
-const activeTab = ref('all') // 'all' | 'challenge' | 'activity'
+const activeTab = ref('all')
 const tabs = [
   { key: 'all', label: '全部', icon: '📂' },
   { key: 'challenge', label: '挑战赛', icon: '🏆' },
   { key: 'activity', label: '活动', icon: '🎯' },
 ]
 
-// 拒绝
 const rejectVisible = ref(false)
 const currentRejectId = ref(null)
 const rejectType = ref('')
 const rejectRemark = ref('')
 
-// 状态
 const statusMap = {
   0: { text: '待审核', type: 'warning' },
   1: { text: '已通过', type: 'success' },
   2: { text: '已拒绝', type: 'danger' },
 }
 
-// ================= 计算属性 (用于过滤显示) =================
 const filteredChallenges = computed(() => {
-  // 如果是全部或者挑战赛，返回原列表，否则返回空数组
   if (activeTab.value === 'all' || activeTab.value === 'challenge') {
     return challengeList.value
   }
@@ -259,21 +251,18 @@ const filteredChallenges = computed(() => {
 })
 
 const filteredActivities = computed(() => {
-  // 如果是全部或者活动，返回原列表，否则返回空数组
   if (activeTab.value === 'all' || activeTab.value === 'activity') {
     return activityList.value
   }
   return []
 })
 
-// 获取 Tab 上的数字角标
 const getTabCount = (key) => {
   if (key === 'challenge') return challengeList.value.length
   if (key === 'activity') return activityList.value.length
   return challengeList.value.length + activityList.value.length
 }
 
-// ================= 用户 =================
 const fetchUserInfo = async () => {
   const res = await getCurrentUserInfo()
   const data = res.data.data
@@ -281,7 +270,6 @@ const fetchUserInfo = async () => {
   currentUserName.value = data.username
 }
 
-// ================= 挑战赛 =================
 const loadChallenges = async () => {
   const res = await listPendingChallenges()
   challengeList.value = res.data.data || []
@@ -294,7 +282,6 @@ const toggleChallenge = async (id) => {
   } else {
     expandedChallengeId.value = id
     const res = await getChallengeApplyList(id)
-
     challengeTableData.value = (res.data.data || []).map(item => ({
       ...item,
       application: item.application || {
@@ -307,7 +294,6 @@ const toggleChallenge = async (id) => {
   }
 }
 
-// ================= 活动 =================
 const loadActivities = async () => {
   const res = await getPendingActivityList()
   activityList.value = res.data.data || []
@@ -320,7 +306,6 @@ const toggleActivity = async (id) => {
   } else {
     expandedActivityId.value = id
     const res = await getActivityApplyList(id)
-
     activityTableData.value = (res.data.data || []).map(item => ({
       ...item,
       application: {
@@ -333,18 +318,17 @@ const toggleActivity = async (id) => {
   }
 }
 
-// ================= 操作 =================
 const handleApprove = async (id, type) => {
   await ElMessageBox.confirm('确定通过？')
-
   if (type === 'challenge') {
     await approveChallenge(id)
     await toggleChallenge(expandedChallengeId.value)
+    await loadChallenges()
   } else {
     await approveActivity(id)
     await toggleActivity(expandedActivityId.value)
+    await loadActivities()
   }
-
   ElMessage.success('操作成功')
 }
 
@@ -360,24 +344,22 @@ const confirmReject = async () => {
     ElMessage.warning('请输入理由')
     return
   }
-
   if (rejectType.value === 'challenge') {
     await rejectApplyWithRemark(currentRejectId.value, rejectRemark.value)
     await toggleChallenge(expandedChallengeId.value)
+    await loadChallenges()
   } else {
     await rejectApply(currentRejectId.value)
     await toggleActivity(expandedActivityId.value)
+    await loadActivities()
   }
-
   rejectVisible.value = false
   ElMessage.success('已拒绝')
 }
 
-// ================= 工具 =================
 const getStatusTagType = (status) => statusMap[status]?.type || 'info'
 const getStatusText = (status) => statusMap[status]?.text || '未知'
 
-// ================= 生命周期 =================
 onMounted(async () => {
   await fetchUserInfo()
   await loadChallenges()
@@ -429,7 +411,6 @@ onMounted(async () => {
   border: 1px solid #E1F5FE;
 }
 
-/* ================= Tab 导航样式 ================= */
 .tab-navigation {
   display: flex;
   gap: 15px;
@@ -483,13 +464,11 @@ onMounted(async () => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-/* ================= 内容区域样式 ================= */
 .content-area {
   animation: fadeIn 0.4s ease;
 }
 
 .section-block {
-  /* 这里不再需要背景色，因为每个卡片都有背景色 */
 }
 
 .section-title {
@@ -498,14 +477,6 @@ onMounted(async () => {
   margin-bottom: 16px;
   padding-left: 10px;
   border-left: 4px solid #29B6F6;
-}
-
-.challenge-list-card {
-  background: #fff;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 5px 15px rgba(100,181,246,0.05);
-  border: 1px solid #F0F4F8;
 }
 
 .challenge-item {

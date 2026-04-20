@@ -152,3 +152,4 @@ export function cancelActivity(id) {
         method: "post"
     });
 }
+

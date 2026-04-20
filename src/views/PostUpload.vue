@@ -434,6 +434,7 @@ export default {
       this.isSubmitting = true;
 
       try {
+
         const urls = await this.uploadImages();
 
         const payload = {
@@ -442,6 +443,7 @@ export default {
           categoryId: this.form.categoryId,
           imageUrls: urls
         };
+
 
         const res = await publishPost(payload);
 
@@ -454,7 +456,8 @@ export default {
               window.scrollTo(0, 0);
               window.dispatchEvent(new Event('refresh-home-list'));
             });
-          }, 1500);
+          }, 800);
+
         } else {
           this.showToast('😭 发布失败：' + (res.data.msg || '未知错误'), 'error');
         }
