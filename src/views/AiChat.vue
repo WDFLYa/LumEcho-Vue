@@ -154,7 +154,7 @@ export default {
       this.forceBottom();
 
       try {
-        const response = await fetch("http://localhost:8080/ai/chat-stream", {
+        const response = await fetch("http://47.116.108.205:8080/ai/chat-stream", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

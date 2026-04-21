@@ -1,7 +1,7 @@
 <template>
   <header class="navbar">
     <!-- 左侧 Logo -->
-    <div class="nav-left" @click="goHome">
+    <div class="nav-left" @click="handleLogoClick">
       <h1 class="lumecho-logo-small">
         🌤️ Lum<span>Echo!</span>
       </h1>
@@ -21,7 +21,6 @@
 
     <!-- 右侧用户区 -->
     <div class="nav-right">
-      <!-- ✅ ADMIN 才显示：后台管理按钮 -->
       <button
           v-if="isAdmin"
           class="admin-btn"
@@ -37,7 +36,6 @@
         <span>发布作品</span>
       </button>
 
-      <!-- 用户胶囊 -->
       <div class="user-capsule" @click="$emit('profile')">
         <div class="capsule-content">
           <span class="user-name">{{ userName }}</span>
@@ -48,9 +46,25 @@
       </div>
     </div>
   </header>
+
+  <!-- 退出登录确认弹窗（美观不违和） -->
+  <div v-show="showLogoutModal" class="modal-overlay" @click.self="closeModal">
+    <div class="modal-box">
+      <div class="modal-icon">🔐</div>
+      <h3>确定要退出登录吗？</h3>
+      <p>退出后需要重新登录才能使用发布、评论等功能</p>
+      <div class="modal-buttons">
+        <button class="btn-cancel" @click="closeModal">取消</button>
+        <button class="btn-confirm" @click="confirmLogout">确认退出</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
+// 引入退出接口
+import { logout } from '@/api/auth'
+
 export default {
   name: "HomeNavBar",
   props: {
@@ -59,20 +73,50 @@ export default {
   },
   data() {
     return {
-      searchQuery: ''
+      searchQuery: '',
+      showLogoutModal: false // 控制弹窗
     };
   },
   computed: {
-    // ✅ 自动判断是否管理员
     isAdmin() {
       return localStorage.getItem('user_role') === 'ADMIN';
     }
   },
   methods: {
+    // Logo点击：弹出退出弹窗
+    handleLogoClick() {
+      this.showLogoutModal = true
+    },
+    // 关闭弹窗
+    closeModal() {
+      this.showLogoutModal = false
+    },
+    // 确认退出登录
+    async confirmLogout() {
+      try {
+        // 调用后端退出接口
+        await logout()
+
+        // 清空本地登录信息
+        localStorage.removeItem('token')
+        localStorage.removeItem('user_id')
+        localStorage.removeItem('user_name')
+        localStorage.removeItem('user_role')
+        localStorage.removeItem('user_avatar')
+
+
+        // 跳转到登录页
+        this.$router.push('/')
+      } catch (err) {
+        console.error('退出失败', err)
+      } finally {
+        this.closeModal()
+      }
+    },
+
     goHome() {
       this.$router.push("/home");
     },
-    // ✅ 去后台
     goAdmin() {
       this.$router.push("/admin");
     },
@@ -84,6 +128,7 @@ export default {
 </script>
 
 <style scoped>
+/* 原有样式不变，我直接追加在后面 */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -98,7 +143,6 @@ export default {
   transition: all 0.3s ease;
 }
 
-/* Logo */
 .nav-left { flex: 1; }
 .lumecho-logo-small {
   font-size: 1.6rem;
@@ -112,7 +156,6 @@ export default {
 .lumecho-logo-small:hover { transform: scale(1.05) rotate(-2deg); }
 .lumecho-logo-small span { color: #FFCA28; -webkit-text-fill-color: #FFCA28; }
 
-/* 搜索框 */
 .search-container {
   flex: 1;
   max-width: 450px;
@@ -150,7 +193,6 @@ export default {
   box-shadow: 0 4px 12px rgba(129, 212, 250, 0.2);
 }
 
-/* 右侧区域 */
 .nav-right {
   flex: 1;
   display: flex;
@@ -159,7 +201,6 @@ export default {
   gap: 20px;
 }
 
-/* ✅ 后台管理按钮（管理员专用） */
 .admin-btn {
   display: flex;
   align-items: center;
@@ -180,7 +221,6 @@ export default {
   box-shadow: 0 6px 15px rgba(79, 195, 247, 0.5);
 }
 
-/* 发布按钮 */
 .upload-btn {
   display: flex;
   align-items: center;
@@ -202,7 +242,6 @@ export default {
 }
 .btn-icon { font-size: 16px; }
 
-/* 用户胶囊 */
 .user-capsule {
   background: #FFFFFF;
   border: 2px solid #F0F4F8;
@@ -255,6 +294,90 @@ export default {
   object-fit: cover;
   border: 2px solid #FFFFFF;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* —————————— 退出登录弹窗样式（美观统一）—————————— */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  background: #fff;
+  width: 90%;
+  max-width: 380px;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: modalScale 0.3s ease;
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.modal-box h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #333;
+}
+
+.modal-box p {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #f2f4f6;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #e5e9ef;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #5C6BC0, #7986CB);
+  color: #fff;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(92, 107, 192, 0.3);
 }
 
 @media (max-width: 768px) {

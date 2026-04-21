@@ -103,3 +103,13 @@ export function getUserList(params) {
 export function updateUserStatus(account, status) {
     return request.put(`/api/user/status/${account}`, { status });
 }
+export function logout() {
+    return request({
+        url: '/api/auth/logout',
+        method: 'post',
+        headers: {
+            // 自动从本地拿token
+            'Authorization': localStorage.getItem('token') || ''
+        }
+    })
+}

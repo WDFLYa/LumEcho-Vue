@@ -1,7 +1,7 @@
 <template>
   <header class="admin-navbar">
-    <!-- 左侧：Logo + 标题 -->
-    <div class="nav-left" @click="goHome">
+    <!-- 左侧：Logo + 标题 → 点击退出登录 -->
+    <div class="nav-left" @click="handleLogoClick">
       <h1 class="admin-logo">
         🛡️ Lum<span>Admin</span>
       </h1>
@@ -38,9 +38,27 @@
       </div>
     </div>
   </header>
+
+  <!-- 管理员专用 → 退出确认弹窗 -->
+  <div v-show="showLogoutModal" class="modal-overlay" @click.self="closeModal">
+    <div class="modal-box admin-modal">
+      <div class="modal-icon">🛡️</div>
+      <h3>确认退出管理员控制台？</h3>
+      <p>退出后将失去管理权限，需要重新登录验证身份</p>
+      <div class="modal-buttons">
+        <button class="btn-cancel" @click="closeModal">取消</button>
+        <button class="btn-confirm admin-confirm" @click="confirmAdminLogout">
+          确认退出
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
+// 引入退出接口
+import { logout } from '@/api/auth'
+
 export default {
   name: "AdminNavBar",
   props: {
@@ -55,10 +73,36 @@ export default {
   },
   data() {
     return {
-      hasUnreadMsg: true
+      hasUnreadMsg: true,
+      showLogoutModal: false // 控制退出弹窗
     };
   },
   methods: {
+    // ========== 管理员退出登录逻辑 ==========
+    handleLogoClick() {
+      this.showLogoutModal = true
+    },
+    closeModal() {
+      this.showLogoutModal = false
+    },
+    async confirmAdminLogout() {
+      try {
+        // 调用后端退出接口
+        await logout()
+
+        // 清空所有登录信息（管理员+用户通用）
+        localStorage.clear()
+
+
+        this.$router.push('/')
+      } catch (err) {
+        console.error('退出失败', err)
+      } finally {
+        this.closeModal()
+      }
+    },
+
+    // ========== 原有功能 ==========
     goHome() {
       if (this.$route.path === '/admin') {
         this.$emit('refresh');
@@ -78,6 +122,7 @@ export default {
 </script>
 
 <style scoped>
+/* 原有样式全部保留 */
 .admin-navbar {
   display: flex;
   justify-content: space-between;
@@ -255,6 +300,96 @@ export default {
   border: 2px solid #fff;
 }
 .status-indicator.online { background: #4CAF50; }
+
+/* —————————— 管理员退出弹窗样式 —————————— */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+}
+
+.modal-box {
+  background: #fff;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 20px;
+  padding: 34px 26px;
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+  animation: modalScale 0.3s ease;
+}
+
+.admin-modal {
+  border-top: 4px solid #0288D1;
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-icon {
+  font-size: 52px;
+  margin-bottom: 14px;
+}
+
+.modal-box h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 700;
+  color: #263238;
+}
+
+.modal-box p {
+  margin: 0 0 26px;
+  font-size: 14px;
+  color: #546E7A;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 14px;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.25s ease;
+}
+
+.btn-cancel {
+  background: #f5f7fa;
+  color: #667;
+}
+.btn-cancel:hover {
+  background: #e4e8ef;
+}
+
+.btn-confirm {
+  color: #fff;
+}
+
+.admin-confirm {
+  background: linear-gradient(135deg, #0288D1, #4FC3F7);
+}
+.admin-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(2, 136, 209, 0.3);
+}
 
 @media (max-width: 768px) {
   .admin-navbar { padding: 10px 20px; }
