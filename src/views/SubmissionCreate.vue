@@ -123,7 +123,7 @@ export default {
       provinceList: [],
       cityList: [],
       districtList: [],
-      currentUserAvatar: localStorage.getItem('user_avatar') || 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: localStorage.getItem('user_avatar') || 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: localStorage.getItem('user_name') || '用户'
     }
   },
@@ -157,7 +157,7 @@ export default {
           if (user) {
             this.form.userId = user.id || user.userId || ''
             this.currentUserName = user.username || '用户'
-            this.currentUserAvatar = user.avatar || 'http://localhost:9000/lumecho/avatar.png'
+            this.currentUserAvatar = user.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png'
           }
         }
       } catch (e) {

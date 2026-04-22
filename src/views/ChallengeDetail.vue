@@ -335,9 +335,9 @@ export default {
       submissions: [],
       submissionsLoading: false,
 
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '摄影师',
-      defaultCover: 'http://localhost:9000/lumecho/avatar.png',
+      defaultCover: 'http://47.116.108.205:9000/lumecho/avatar.png',
 
       applyStatus: null,
       hasSubmittedWork: false,

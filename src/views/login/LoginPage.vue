@@ -92,7 +92,8 @@
 </template>
 
 <script>
-import {loginByAccount, loginByPhone, sendLoginCode} from "@/api/auth";
+// import {loginByAccount, loginByPhone, sendLoginCode} from "@/api/auth";
+import {loginByAccount, loginByPhone} from "@/api/auth";
 
 export default {
 
@@ -217,28 +218,34 @@ export default {
       }
     },
 
-    async sendCode(){
-      this.sending = true
-      try{
-        const res = await sendLoginCode({ phone:this.phone })
-        if (res.data.code === 200) {
-          this.showToast("验证码已发送", "success");
-          this.startCountdown();
-        } else {
-          const errMsg = Object.values(res.data.data || {})[0] || res.data.message || "发送失败";
-          this.showToast(errMsg, "error");
-          this.sending = false;
-        }
-      }catch (err) {
-        const data = err.response?.data;
-        if(data && typeof data === "object"){
-          this.message = data.data.phone || data.message;
-        }else{
-          this.message="网络或服务器错误";
-        }
-        this.showToast(this.message,"error");
-        this.sending = false;
-      }
+    // async sendCode(){
+    //   this.sending = true
+    //   try{
+    //     const res = await sendLoginCode({ phone:this.phone })
+    //     if (res.data.code === 200) {
+    //       this.showToast("验证码已发送", "success");
+    //       this.startCountdown();
+    //     } else {
+    //       const errMsg = Object.values(res.data.data || {})[0] || res.data.message || "发送失败";
+    //       this.showToast(errMsg, "error");
+    //       this.sending = false;
+    //     }
+    //   }catch (err) {
+    //     const data = err.response?.data;
+    //     if(data && typeof data === "object"){
+    //       this.message = data.data.phone || data.message;
+    //     }else{
+    //       this.message="网络或服务器错误";
+    //     }
+    //     this.showToast(this.message,"error");
+    //     this.sending = false;
+    //   }
+    // },
+
+    async sendCode() {
+      // 毕设专用：短信服务审核中，不调用接口，直接提示
+      this.showToast("短信服务正在申请开通中，请先使用账号密码登录体验～", "error");
+      this.sending = false;
     },
 
     startCountdown(){

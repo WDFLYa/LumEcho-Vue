@@ -1,6 +1,6 @@
 <template>
   <div class="admin-container">
-    <AdminNavBar
+    <AdminHomeNavBar
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
     />
@@ -44,12 +44,12 @@
 </template>
 
 <script>
-import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
+import AdminHomeNavBar from "@/components/NavBar/AdminHomeNavBar.vue";
 import { getCurrentUserInfo } from "@/api/auth";
 
 export default {
   name: "AdminHome",
-  components: { AdminNavBar },
+  components: { AdminHomeNavBar },
   data() {
     return {
       currentUserAvatar: '',

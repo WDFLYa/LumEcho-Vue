@@ -129,7 +129,7 @@
 <script>
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
 import { getPhotographerList, reviewPhotographer } from "@/api/photographer";
-import { getUserById } from "@/api/auth";
+import { getUserById, getCurrentUserInfo } from "@/api/auth";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 export default {
@@ -138,7 +138,7 @@ export default {
 
   data() {
     return {
-      currentUserAvatar: "http://localhost:9000/lumecho/avatar.png",
+      currentUserAvatar: "http://47.116.108.205:9000/lumecho/avatar.png",
       currentUserName: "Admin",
 
       loading: false,
@@ -168,9 +168,21 @@ export default {
 
   mounted() {
     this.fetchApplications();
+    this.fetchUserInfo(); // 👈 就加这一行
   },
 
   methods: {
+    // 👋 加这个方法
+    async fetchUserInfo() {
+
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserName = data.username;
+          this.currentUserAvatar = data.avatar;
+        }
+
+    },
 
     // =========================
     // 获取 + 补用户信息（关键）
@@ -256,7 +268,6 @@ export default {
   }
 };
 </script>
-
 <style scoped>
 /* 你的原样式完全保留，不动 */
 </style>

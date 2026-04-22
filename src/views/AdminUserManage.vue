@@ -4,7 +4,6 @@
         :user-avatar="currentUserAvatar"
         :user-name="currentUserName"
         @search="handleSearch"
-        @profile="goProfile"
     />
 
     <main class="content-wrapper">
@@ -107,9 +106,9 @@ export default {
   components: { AdminNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
-      defaultAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      defaultAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
 
       loading: false,
       searchQuery: '',
@@ -164,7 +163,6 @@ export default {
       return '普通用户';
     },
 
-    goProfile() { this.$router.push("/admin/profile"); },
     showToast(msg, type = "success") {
       if (this.$message) this.$message[type](msg);
       else alert(msg);

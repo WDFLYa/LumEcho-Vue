@@ -130,6 +130,7 @@
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
 import { getActivityList, cancelActivity } from "@/api/activity";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { getCurrentUserInfo } from "@/api/auth";  // 👈 加这行
 
 export default {
   name: "AdminActivityManage",
@@ -137,15 +138,11 @@ export default {
 
   data() {
     return {
-      currentUserAvatar: "http://localhost:9000/lumecho/avatar.png",
+      currentUserAvatar: "http://47.116.108.205:9000/lumecho/avatar.png",
       currentUserName: "Admin",
       list: [],
       loading: false,
-
-      // ✅ 新增：当前选中的状态筛选值 (null 表示全部)
       filterStatus: null,
-
-      // ✅ 新增：状态列表定义
       statusList: [
         { label: "全部", value: null },
         { label: "未开始", value: 0 },
@@ -156,7 +153,6 @@ export default {
     };
   },
 
-  // ✅ 新增：计算属性，根据筛选条件过滤列表
   computed: {
     filteredList() {
       if (this.filterStatus === null) {
@@ -168,9 +164,20 @@ export default {
 
   mounted() {
     this.fetchList();
+    this.fetchUserInfo();  // 👈 加这行
   },
 
   methods: {
+    // 👇 加这个方法
+    async fetchUserInfo() {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserName = data.username;
+          this.currentUserAvatar = data.avatar;
+        }
+    },
+
     async fetchList() {
       this.loading = true;
       try {

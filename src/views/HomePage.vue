@@ -186,7 +186,7 @@ export default {
   components: { HomeNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '神秘摄影师',
 
       showCompleteProfileModal: false,
@@ -210,8 +210,8 @@ export default {
       loading: false,
       offset: 0,
       limit: 8,
-      defaultCover: 'http://localhost:9000/lumecho/cover.png',
-      defaultAvatar: 'http://localhost:9000/lumecho/avatar.png'
+      defaultCover: 'http://47.116.108.205:9000/lumecho/cover.png',
+      defaultAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png'
     };
   },
   mounted() {
@@ -348,7 +348,7 @@ export default {
       if (
           !this.currentUserName ||
           this.currentUserName === '神秘摄影师' ||
-          this.currentUserAvatar === 'http://localhost:9000/lumecho/avatar.png'
+          this.currentUserAvatar === 'http://47.116.108.205:9000/lumecho/avatar.png'
       ) {
         setTimeout(() => {
           this.showCompleteProfileModal = true;

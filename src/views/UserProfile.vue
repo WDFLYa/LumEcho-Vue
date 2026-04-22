@@ -25,7 +25,7 @@
               :src="user.avatar"
               class="user-avatar"
               alt="avatar"
-              @error="handleImgError($event, 'http://localhost:9000/specialty/avatar.png')"
+              @error="handleImgError($event, 'http://47.116.108.205:9000/lumecho/avatar.png')"
           />
         </div>
 
@@ -101,11 +101,11 @@
         >
           <div class="card-img-wrap">
             <img
-                :src="post.cover || 'http://localhost:9000/lumecho/avatar.png'"
+                :src="post.cover || 'http://47.116.108.205:9000/lumecho/avatar.png'"
                 class="card-img"
                 loading="lazy"
                 alt="cover"
-                @error="handleImgError($event, 'http://localhost:9000/lumecho/avatar.png')"
+                @error="handleImgError($event, 'http://47.116.108.205:9000/lumecho/avatar.png')"
             />
             <div class="card-overlay">
               <span class="overlay-heart">❤️</span>
@@ -151,11 +151,11 @@
         >
           <div class="card-img-wrap">
             <img
-                :src="post.cover || 'http://localhost:9000/lumecho/avatar.png'"
+                :src="post.cover || 'http://47.116.108.205:9000/lumecho/avatar.png'"
                 class="card-img"
                 loading="lazy"
                 alt="cover"
-                @error="handleImgError($event, 'http://localhost:9000/lumecho/avatar.png')"
+                @error="handleImgError($event, 'http://47.116.108.205:9000/lumecho/avatar.png')"
             />
             <div class="card-overlay">
               <span class="overlay-heart">❤️</span>
@@ -169,10 +169,10 @@
             <h4 class="card-title">{{ post.title }}</h4>
             <div class="card-author">
               <img
-                  :src="post.avatar || 'http://localhost:9000/lumecho/avatar.png'"
+                  :src="post.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png'"
                   class="author-mini-avatar"
                   alt="author"
-                  @error="handleImgError($event, 'http://localhost:9000/lumecho/avatar.png')"
+                  @error="handleImgError($event, 'http://47.116.108.205:9000/lumecho/avatar.png')"
               />
               <span class="author-name">{{ post.username }}</span>
             </div>
@@ -228,9 +228,9 @@
             >
               <div class="user-info-area" @click="goToUser(u.userId)">
                 <img
-                    :src="u.avatar || 'http://localhost:9000/specialty/avatar.png'"
+                    :src="u.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png'"
                     class="item-avatar"
-                    @error="handleImgError($event, 'http://localhost:9000/specialty/avatar.png')"
+                    @error="handleImgError($event, 'http://47.116.108.205:9000/lumecho/avatar.png')"
                 />
                 <div class="item-info">
                   <div class="item-name">
@@ -285,7 +285,7 @@ export default {
       user: {
         username: '加载中...',
         bio: '',
-        avatar: 'http://localhost:9000/specialty/avatar.png'
+        avatar: 'http://47.116.108.205:9000/lumecho/avatar.png'
       },
       stats: { posts: 0, followers: 0, following: 0 },
       posts: [],
@@ -405,7 +405,7 @@ export default {
       this.user = {
         username: data.username || '未命名',
         bio: data.bio || '',
-        avatar: data.avatar || 'http://localhost:9000/specialty/avatar.png'
+        avatar: data.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png'
       };
       this.stats = {
         posts: data.postCount ?? data.postsCount ?? 0,
@@ -489,7 +489,7 @@ export default {
             ...item,
             likes: item.likes ?? item.likeCount ?? 0,
             comments: item.comments ?? item.commentCount ?? 0,
-            cover: item.cover || item.imageUrls?.[0] || 'http://localhost:9000/lumecho/avatar.png',
+            cover: item.cover || item.imageUrls?.[0] || 'http://47.116.108.205:9000/lumecho/avatar.png',
             timeAgo: item.timeAgo || this.formatTimeAgo(item.createTime),
             title: item.title || '无标题',
             content: item.content || ''
@@ -534,11 +534,11 @@ export default {
             ...item,
             likes: item.likes ?? item.likeCount ?? 0,
             comments: item.comments ?? item.commentCount ?? 0,
-            cover: item.cover || item.imageUrls?.[0] || 'http://localhost:9000/lumecho/avatar.png',
+            cover: item.cover || item.imageUrls?.[0] || 'http://47.116.108.205:9000/lumecho/avatar.png',
             timeAgo: item.timeAgo || this.formatTimeAgo(item.createTime),
             title: item.title || '无标题',
             username: item.username || '神秘用户',
-            avatar: item.avatar || 'http://localhost:9000/lumecho/avatar.png'
+            avatar: item.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png'
           }));
 
           this.likedPosts = [...this.likedPosts, ...formattedList];

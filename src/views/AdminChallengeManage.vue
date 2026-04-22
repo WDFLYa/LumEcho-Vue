@@ -11,7 +11,7 @@
       <header class="page-header">
         <div class="header-left">
           <h1>挑战赛管理</h1>
-          <p class="subtitle">监控活动状态、报名数据及紧急干预</p>
+          <p class="subtitle">监控挑战赛状态、报名数据及紧急干预</p>
         </div>
         <div class="header-right">
           <button class="refresh-btn" @click="fetchList" :disabled="loading">
@@ -117,6 +117,7 @@
 import AdminNavBar from "@/components/NavBar/AdminNavBar.vue";
 import { getChallengeList, cancelChallenge } from "@/api/challenge";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { getCurrentUserInfo } from "@/api/auth";  // 👈 加这行
 
 export default {
   name: "AdminChallengeManage",
@@ -124,13 +125,12 @@ export default {
 
   data() {
     return {
-      currentUserAvatar: "http://localhost:9000/lumecho/avatar.png",
+      currentUserAvatar: "http://47.116.108.205:9000/lumecho/avatar.png",
       currentUserName: "Admin",
       loading: false,
       list: [],
       filterStatus: null,
 
-      // ✅ 更新：增加了“已取消”选项
       statusList: [
         { label: "全部", value: null },
         { label: "未开始", value: 0 },
@@ -151,9 +151,20 @@ export default {
 
   mounted() {
     this.fetchList();
+    this.fetchUserInfo();  // 👈 加这行
   },
 
   methods: {
+    // 👇 加这个方法
+    async fetchUserInfo() {
+        const res = await getCurrentUserInfo();
+        const data = res.data.code === 200 ? res.data.data : res.data;
+        if (data) {
+          this.currentUserName = data.username;
+          this.currentUserAvatar = data.avatar;
+        }
+    },
+
     async fetchList() {
       this.loading = true;
       try {
@@ -171,7 +182,6 @@ export default {
       }
     },
 
-    // ✅ 更新：映射中增加了 4: "已取消"
     getStatusLabel(code) {
       const map = {
         0: "未开始",

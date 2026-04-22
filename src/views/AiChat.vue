@@ -71,11 +71,11 @@ export default {
       isStreaming: false,
       currentUser: {
         username: "我",
-        avatar: "http://localhost:9000/specialty/avatar.png",
+        avatar: "http://47.116.108.205:9000/lumecho/avatar.png",
       },
       targetUser: {
         username: "摄影师",
-        avatar: "http://localhost:9000/specialty/avatar.png",
+        avatar: "http://47.116.108.205:9000/lumecho/avatar.png",
       },
     };
   },

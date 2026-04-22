@@ -305,7 +305,7 @@ import {
   updateUserProfile,
   completeAccount,
   completePhone,
-  sendCompleteCode
+  //sendCompleteCode
   // updateUserAvatar 不需要了，uploadAvatar 已包含更新逻辑
 } from "@/api/auth";
 
@@ -315,7 +315,7 @@ export default {
 
   data() {
     return {
-      defaultAvatar: 'http://localhost:9000/specialty/avatar.png',
+      defaultAvatar: 'http://47.116.108.205:9000/specialty/avatar.png',
       currentUserAvatar: '',
       currentUserName: '',
 
@@ -449,33 +449,39 @@ export default {
       this.countdown = 0;
     },
 
-    async handleSendCode() {
-      const phoneRegex = /^1[3-9]\d{9}$/;
-      if (!phoneRegex.test(this.completeForm.phone)) {
-        this.completeErrors.phone = '请输入正确的 11 位手机号';
-        return;
-      }
-      this.completeErrors.phone = '';
-      this.sendingCode = true;
+    // async handleSendCode() {
+    //   const phoneRegex = /^1[3-9]\d{9}$/;
+    //   if (!phoneRegex.test(this.completeForm.phone)) {
+    //     this.completeErrors.phone = '请输入正确的 11 位手机号';
+    //     return;
+    //   }
+    //   this.completeErrors.phone = '';
+    //   this.sendingCode = true;
+    //
+    //   try {
+    //     await sendCompleteCode({ phone: this.completeForm.phone });
+    //     this.showToast('验证码已发送，请注意查收 📩', 'success');
+    //     this.countdown = 60;
+    //     this.countdownTimer = setInterval(() => {
+    //       this.countdown--;
+    //       if (this.countdown <= 0) {
+    //         clearInterval(this.countdownTimer);
+    //         this.countdown = 0;
+    //       }
+    //     }, 1000);
+    //   } catch (error) {
+    //     const msg = error.response?.data?.msg || '发送失败，请稍后再试';
+    //     this.showToast(msg, 'error');
+    //     this.completeErrors.phone = msg;
+    //   } finally {
+    //     this.sendingCode = false;
+    //   }
+    // },
 
-      try {
-        await sendCompleteCode({ phone: this.completeForm.phone });
-        this.showToast('验证码已发送，请注意查收 📩', 'success');
-        this.countdown = 60;
-        this.countdownTimer = setInterval(() => {
-          this.countdown--;
-          if (this.countdown <= 0) {
-            clearInterval(this.countdownTimer);
-            this.countdown = 0;
-          }
-        }, 1000);
-      } catch (error) {
-        const msg = error.response?.data?.msg || '发送失败，请稍后再试';
-        this.showToast(msg, 'error');
-        this.completeErrors.phone = msg;
-      } finally {
-        this.sendingCode = false;
-      }
+    async handleSendCode() {
+      // 毕设专用：短信服务审核中，不调用接口，直接提示
+      this.showToast("短信服务正在申请开通中，过段时间再来完善吧~", "error");
+      this.sending = false;
     },
 
     async handleCompleteSubmit() {

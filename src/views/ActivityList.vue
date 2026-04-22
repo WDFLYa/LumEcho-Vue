@@ -106,7 +106,7 @@ export default {
   components: { ActivityNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '摄影师',
       activityList: [],
       currentTab: 'all',

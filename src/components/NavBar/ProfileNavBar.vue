@@ -60,7 +60,7 @@
       <div class="user-info" @click="$emit('profile')">
         <span class="user-name">{{ userName }}</span>
         <div class="user-avatar">
-          <img :src="userAvatar" alt="Avatar" onerror="this.src='http://localhost:9000/specialty/avatar.png'" />
+          <img :src="userAvatar" alt="Avatar" onerror="this.src='http://47.116.108.205:9000/specialty/avatar.png'" />
         </div>
       </div>
     </div>

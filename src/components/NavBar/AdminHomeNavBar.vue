@@ -1,26 +1,12 @@
 <template>
   <header class="admin-navbar">
-    <!-- 左侧：Logo + 面包屑/标题 -->
-    <div class="nav-left" @click="goHome">
+    <!-- 左侧：Logo + 标题 → 点击退出登录 -->
+    <div class="nav-left" @click="handleLogoClick">
       <h1 class="admin-logo">
         🛡️ Lum<span>Admin</span>
       </h1>
       <div class="divider"></div>
       <span class="page-title">控制台 Dashboard</span>
-    </div>
-
-    <!-- 中间：管理专用搜索框 -->
-    <div class="search-container">
-      <span class="search-icon">🔍</span>
-      <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索用户ID、订单号或摄影师..."
-          class="search-input"
-          @keyup.enter="handleSearch"
-      />
-      <!-- 清除按钮 (有内容时显示) -->
-      <span v-if="searchQuery" class="clear-icon" @click.stop="clearSearch">✕</span>
     </div>
 
     <!-- 右侧：工具与用户区 -->
@@ -37,7 +23,7 @@
         <span v-if="hasUnreadMsg" class="red-dot"></span>
       </div>
 
-      <!-- 3. 管理员信息胶囊 -->
+      <!-- 3. 管理员信息胶囊（真实头像+名字） -->
       <div class="admin-capsule" @click="$emit('profile')">
         <div class="capsule-content">
           <div class="admin-info-text">
@@ -52,9 +38,27 @@
       </div>
     </div>
   </header>
+
+  <!-- 管理员专用 → 退出确认弹窗 -->
+  <div v-show="showLogoutModal" class="modal-overlay" @click.self="closeModal">
+    <div class="modal-box admin-modal">
+      <div class="modal-icon">🛡️</div>
+      <h3>确认退出管理员控制台？</h3>
+      <p>退出后将失去管理权限，需要重新登录验证身份</p>
+      <div class="modal-buttons">
+        <button class="btn-cancel" @click="closeModal">取消</button>
+        <button class="btn-confirm admin-confirm" @click="confirmAdminLogout">
+          确认退出
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
+// 引入退出接口
+import { logout } from '@/api/auth'
+
 export default {
   name: "AdminNavBar",
   props: {
@@ -69,13 +73,37 @@ export default {
   },
   data() {
     return {
-      searchQuery: '',
-      hasUnreadMsg: true // 模拟有未读消息
+      hasUnreadMsg: true,
+      showLogoutModal: false // 控制退出弹窗
     };
   },
   methods: {
+    // ========== 管理员退出登录逻辑 ==========
+    handleLogoClick() {
+      this.showLogoutModal = true
+    },
+    closeModal() {
+      this.showLogoutModal = false
+    },
+    async confirmAdminLogout() {
+      try {
+        // 调用后端退出接口
+        await logout()
+
+        // 清空所有登录信息（管理员+用户通用）
+        localStorage.clear()
+
+
+        this.$router.push('/')
+      } catch (err) {
+        console.error('退出失败', err)
+      } finally {
+        this.closeModal()
+      }
+    },
+
+    // ========== 原有功能 ==========
     goHome() {
-      // 如果已经在首页则刷新，否则跳转
       if (this.$route.path === '/admin') {
         this.$emit('refresh');
       } else {
@@ -85,23 +113,16 @@ export default {
     goFrontHome() {
       this.$router.push("/home");
     },
-    handleSearch() {
-      this.$emit('search', this.searchQuery);
-    },
-    clearSearch() {
-      this.searchQuery = '';
-      this.$emit('search', '');
-    },
     handleNotification() {
       this.hasUnreadMsg = false;
-      this.$router.push('/admin/messages'); // 假设的消息中心路径
+      this.$router.push('/admin/messages');
     }
   }
 };
 </script>
 
 <style scoped>
-/* --- 容器样式 --- */
+/* 原有样式全部保留 */
 .admin-navbar {
   display: flex;
   justify-content: space-between;
@@ -110,7 +131,6 @@ export default {
   position: sticky;
   top: 0;
   z-index: 1000;
-  /* 更偏向管理的磨砂玻璃效果 */
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid #E1F5FE;
@@ -118,7 +138,6 @@ export default {
   transition: all 0.3s ease;
 }
 
-/* --- 左侧 Logo 区 --- */
 .nav-left {
   display: flex;
   align-items: center;
@@ -130,14 +149,14 @@ export default {
 .admin-logo {
   font-size: 1.5rem;
   font-weight: 900;
-  color: #37474F; /* 更深沉的颜色 */
+  color: #37474F;
   margin: 0;
   letter-spacing: -0.5px;
   transition: transform 0.3s;
 }
 .admin-logo:hover { transform: scale(1.02); }
 .admin-logo span {
-  color: #0288D1; /* 科技蓝 */
+  color: #0288D1;
 }
 
 .divider {
@@ -154,63 +173,12 @@ export default {
   letter-spacing: 1px;
 }
 
-/* --- 中间搜索框 --- */
-.search-container {
-  flex: 1;
-  max-width: 500px;
-  margin: 0 20px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 16px;
-  font-size: 16px;
-  color: #B0BEC5;
-  pointer-events: none;
-  transition: color 0.3s;
-}
-
-.clear-icon {
-  position: absolute;
-  right: 16px;
-  font-size: 14px;
-  color: #B0BEC5;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.clear-icon:hover { color: #F44336; transform: scale(1.1); }
-
-.search-input {
-  width: 100%;
-  padding: 10px 40px 10px 45px; /* 右边距留给清除按钮 */
-  border-radius: 12px; /* 稍微方一点，显得更严谨 */
-  border: 2px solid #ECEFF1;
-  background: #F5F7FA;
-  font-size: 14px;
-  color: #455A64;
-  outline: none;
-  transition: all 0.3s;
-  font-family: inherit;
-}
-
-.search-input:focus {
-  background: #FFFFFF;
-  border-color: #4FC3F7;
-  box-shadow: 0 0 0 4px rgba(79, 195, 247, 0.1);
-}
-.search-input:focus + .search-icon { color: #4FC3F7; }
-
-/* --- 右侧操作区 --- */
 .nav-right {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-/* 通用图标按钮 */
 .icon-btn {
   background: transparent;
   border: none;
@@ -235,7 +203,6 @@ export default {
   font-weight: 700;
 }
 
-/* 消息通知 */
 .notification-wrapper {
   position: relative;
   cursor: pointer;
@@ -263,7 +230,6 @@ export default {
   100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
 }
 
-/* 管理员胶囊 */
 .admin-capsule {
   background: #FFFFFF;
   border: 2px solid #ECEFF1;
@@ -335,11 +301,99 @@ export default {
 }
 .status-indicator.online { background: #4CAF50; }
 
-/* 移动端适配 */
+/* —————————— 管理员退出弹窗样式 —————————— */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+}
+
+.modal-box {
+  background: #fff;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 20px;
+  padding: 34px 26px;
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+  animation: modalScale 0.3s ease;
+}
+
+.admin-modal {
+  border-top: 4px solid #0288D1;
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-icon {
+  font-size: 52px;
+  margin-bottom: 14px;
+}
+
+.modal-box h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 700;
+  color: #263238;
+}
+
+.modal-box p {
+  margin: 0 0 26px;
+  font-size: 14px;
+  color: #546E7A;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 14px;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.25s ease;
+}
+
+.btn-cancel {
+  background: #f5f7fa;
+  color: #667;
+}
+.btn-cancel:hover {
+  background: #e4e8ef;
+}
+
+.btn-confirm {
+  color: #fff;
+}
+
+.admin-confirm {
+  background: linear-gradient(135deg, #0288D1, #4FC3F7);
+}
+.admin-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(2, 136, 209, 0.3);
+}
+
 @media (max-width: 768px) {
   .admin-navbar { padding: 10px 20px; }
   .page-title, .back-btn .btn-text, .admin-info-text { display: none; }
-  .search-container { max-width: 120px; margin: 0 10px; }
   .divider { display: none; }
   .admin-capsule { padding: 4px; border-radius: 50%; border: none; box-shadow: none; }
 }

@@ -136,7 +136,7 @@
             <h3 class="section-title">👀 看看效果</h3>
             <div class="preview-mockup">
               <div class="mockup-header">
-                <img :src="currentUser.avatar" class="mockup-avatar" onerror="this.src='http://localhost:9000/specialty/avatar.png'" />
+                <img :src="currentUser.avatar" class="mockup-avatar" onerror="this.src='http://47.116.108.205:9000/specialty/avatar.png'" />
                 <div class="mockup-info">
                   <div class="mockup-name">{{ currentUser.name }}</div>
                   <div class="mockup-time">刚刚发布 🚀</div>
@@ -205,7 +205,7 @@ export default {
       MAX_IMAGES: 9,
       currentUser: {
         name: '神秘摄影师',
-        avatar: 'http://localhost:9000/specialty/avatar.png'
+        avatar: 'http://47.116.108.205:9000/specialty/avatar.png'
       },
       form: {
         title: '',
@@ -260,7 +260,7 @@ export default {
           const data = res.data.data;
           if (data) {
             this.currentUser.name = data.username || '神秘摄影师';
-            this.currentUser.avatar = data.avatar || 'http://localhost:9000/specialty/avatar.png';
+            this.currentUser.avatar = data.avatar || 'http://47.116.108.205:9000/specialty/avatar.png';
           }
         }
       } catch (error) {

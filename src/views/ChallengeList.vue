@@ -108,13 +108,13 @@ export default {
   components: { ChallengeNavBar },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '摄影师',
       challengeList: [],
       currentTab: 'all',
       // sortBy: 'latest',  <-- 已删除
       searchQuery: '',
-      defaultCover: 'http://localhost:9000/lumecho/cover.png',
+      defaultCover: 'http://47.116.108.205:9000/lumecho/cover.png',
       tabs: [
         { key: 'all', label: '全部' },
         { key: 'ongoing', label: '进行中' },

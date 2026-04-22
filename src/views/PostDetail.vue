@@ -31,14 +31,6 @@
 
       <!-- 媒体展示区：智能网格布局 -->
       <div class="media-gallery" v-if="post.imageUrls && post.imageUrls.length > 0">
-        <!--
-          布局逻辑说明：
-          1 张 -> single-image (大图)
-          2 张 -> two-images (2列)
-          3 张 -> three-images (3列)
-          4 张 -> four-images (2x2 特殊布局) ⭐
-          5+ 张 -> multi-images (3列，自动换行)
-        -->
         <div class="gallery-grid" :class="gridClass">
           <img
               v-for="(img, index) in post.imageUrls"
@@ -184,7 +176,7 @@ export default {
   },
   data() {
     return {
-      currentUserAvatar: 'http://localhost:9000/lumecho/avatar.png',
+      currentUserAvatar: 'http://47.116.108.205:9000/lumecho/avatar.png',
       currentUserName: '神秘用户',
       postId: null,
       loading: true,
@@ -214,14 +206,13 @@ export default {
     };
   },
   computed: {
-    // ✅ 核心逻辑：针对 4 张图片做特殊处理
     gridClass() {
       const count = this.post.imageUrls.length;
       if (count === 1) return 'single-image';
       if (count === 2) return 'two-images';
       if (count === 3) return 'three-images';
-      if (count === 4) return 'four-images'; // ⭐ 4 张图使用 2x2 布局
-      return 'multi-images'; // 5 张及以上回归微信 3 列布局
+      if (count === 4) return 'four-images';
+      return 'multi-images';
     }
   },
   created() {
@@ -260,9 +251,7 @@ export default {
       if (!this.postId) return;
       try {
         const res = await getLikeStatus(this.postId);
-        if (res.data.code === 200 || res.data.success) {
-          this.isLiked = res.data.data || false;
-        }
+        this.isLiked = res.data || false;
       } catch (error) {
         console.error('获取点赞状态失败', error);
         this.isLiked = false;
@@ -296,7 +285,7 @@ export default {
             createTime: data.createTime || '',
             authorName: data.username || '神秘摄影师',
             userId: data.userId,
-            authorAvatar: data.avatar || 'http://localhost:9000/lumecho/avatar.png',
+            authorAvatar: data.avatar || 'http://47.116.108.205:9000/lumecho/avatar.png',
             categories: data.categoryName ? [data.categoryName] : []
           };
         }
@@ -419,7 +408,6 @@ export default {
 </script>
 
 <style scoped>
-/* ==================== 全局变量 ==================== */
 .detail-container {
   min-height: 100vh;
   background: linear-gradient(180deg, #FFF9F0 0%, #FFFFFF 100%);
@@ -428,7 +416,6 @@ export default {
   position: relative;
 }
 
-/* ==================== Toast 提示 ==================== */
 .custom-toast {
   position: fixed;
   top: 20%;
@@ -453,7 +440,6 @@ export default {
   transform: translate(-50%, -20px);
 }
 
-/* ==================== 主体内容 ==================== */
 .content-wrapper {
   max-width: 800px;
   margin: 40px auto 80px;
@@ -521,10 +507,10 @@ export default {
   50% { transform: scale(1.2); opacity: 0.8; }
 }
 
-/* ==================== 媒体画廊 ==================== */
+/* ==================== 图片布局已完美修复 ==================== */
 .media-gallery {
   margin-bottom: 30px;
-  border-radius: 24px;
+  border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   border: 4px solid #fff;
@@ -532,63 +518,40 @@ export default {
 .gallery-grid {
   display: grid;
   gap: 6px;
-  background: #f0f0f0;
+  background: #f9f9f9;
 }
 .gallery-item {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: zoom-in;
-  transition: transform 0.4s;
+  height: auto;
+  object-fit: contain;
   display: block;
+  transition: transform 0.3s ease;
 }
 .gallery-item:hover {
-  transform: scale(1.05);
+  transform: scale(1.02);
   z-index: 10;
-  position: relative;
 }
 
-/* --- 1 张图：大图模式 --- */
 .gallery-grid.single-image {
   grid-template-columns: 1fr;
 }
 .gallery-grid.single-image .gallery-item {
-  aspect-ratio: 16/9; /* 或者 auto 保持原比例 */
+  max-height: 800px;
 }
 
-/* --- 2 张图：并排模式 --- */
 .gallery-grid.two-images {
   grid-template-columns: 1fr 1fr;
 }
-.gallery-grid.two-images .gallery-item {
-  aspect-ratio: 1/1;
-}
-
-/* --- 3 张图：三列模式 --- */
 .gallery-grid.three-images {
   grid-template-columns: 1fr 1fr 1fr;
 }
-.gallery-grid.three-images .gallery-item {
-  aspect-ratio: 1/1;
-}
-
-/* --- ⭐ 4 张图：2x2 特殊模式 (Instagram 风格) --- */
 .gallery-grid.four-images {
-  grid-template-columns: 1fr 1fr; /* 强制 2 列 */
+  grid-template-columns: 1fr 1fr;
 }
-.gallery-grid.four-images .gallery-item {
-  aspect-ratio: 1/1; /* 正方形 */
-}
-
-/* --- 5 张及以上：微信九宫格模式 (每行 3 个) --- */
 .gallery-grid.multi-images {
-  grid-template-columns: repeat(3, 1fr); /* 固定 3 列 */
-}
-.gallery-grid.multi-images .gallery-item {
-  aspect-ratio: 1/1;
+  grid-template-columns: repeat(3, 1fr);
 }
 
-/* ==================== 正文与标签 ==================== */
 .post-content-body {
   background: #fff;
   padding: 30px;
@@ -632,7 +595,6 @@ export default {
   background: #E0E7FF;
 }
 
-/* ==================== 互动栏 ==================== */
 .interaction-bar {
   display: flex;
   justify-content: center;
@@ -675,7 +637,6 @@ export default {
 
 .divider { border: 0; border-top: 2px dashed #FFE5D9; margin: 0 0 30px 0; }
 
-/* ==================== 评论区 ==================== */
 .comments-section {
   background: #fff;
   padding: 30px;
@@ -826,10 +787,5 @@ export default {
   .post-title-main { font-size: 1.5rem; }
   .interaction-bar { flex-wrap: wrap; justify-content: center; }
   .interaction-btn { padding: 8px 16px; font-size: 13px; }
-
-  /* 移动端优化：4张图在极小屏幕上也可以保持2x2，或者根据需要调整 */
-  .gallery-grid.four-images {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 </style>
